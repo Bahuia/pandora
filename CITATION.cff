@@ -1,0 +1,71 @@
+cff-version: 1.2.0
+message: "If you use PANDORA, please cite the TKDE paper below."
+title: "PANDORA"
+type: software
+version: 0.1.0
+date-released: 2026-08-29
+repository-code: "https://github.com/Bahuia/pandora"
+url: "https://github.com/Bahuia/pandora"
+license: Apache-2.0
+authors:
+  - family-names: Chen
+    given-names: Yongrui
+  - family-names: He
+    given-names: Junhao
+  - family-names: Fu
+    given-names: Linbo
+  - family-names: Zhang
+    given-names: Shenyu
+  - family-names: Jin
+    given-names: Rihui
+  - family-names: Dai
+    given-names: Xinbang
+  - family-names: Li
+    given-names: Jiaqi
+  - family-names: Min
+    given-names: Dehai
+  - family-names: Hu
+    given-names: Nan
+  - family-names: Zhang
+    given-names: Yuxin
+  - family-names: Qi
+    given-names: Guilin
+  - family-names: Huang
+    given-names: Yi
+  - family-names: Wu
+    given-names: Tongtong
+preferred-citation:
+  type: article
+  title: "PANDORA: Leveraging Code-driven Knowledge Transfer for Unified Structured Knowledge Reasoning"
+  authors:
+    - family-names: Chen
+      given-names: Yongrui
+    - family-names: He
+      given-names: Junhao
+    - family-names: Fu
+      given-names: Linbo
+    - family-names: Zhang
+      given-names: Shenyu
+    - family-names: Jin
+      given-names: Rihui
+    - family-names: Dai
+      given-names: Xinbang
+    - family-names: Li
+      given-names: Jiaqi
+    - family-names: Min
+      given-names: Dehai
+    - family-names: Hu
+      given-names: Nan
+    - family-names: Zhang
+      given-names: Yuxin
+    - family-names: Qi
+      given-names: Guilin
+    - family-names: Huang
+      given-names: Yi
+    - family-names: Wu
+      given-names: Tongtong
+  journal: "IEEE Transactions on Knowledge and Data Engineering"
+  year: 2026
+  start: 1
+  end: 27
+  doi: "10.1109/TKDE.2026.3718049"
