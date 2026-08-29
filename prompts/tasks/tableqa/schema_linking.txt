@@ -1,0 +1,74 @@
+You are an expert at identifying which columns in a table are relevant to answering a question.
+
+## Task
+Identify which columns from the table are relevant to the given question.
+
+## Table Schema
+```python
+{{ box_schema }}
+```
+
+**IMPORTANT:**
+- Each column has a description with sample values explaining its meaning
+- Column names may be abbreviations — rely on the descriptions and sample values
+
+{% if table_content %}
+## Table Content (Sample Rows)
+{{ table_content }}
+{% endif %}
+
+## Question
+{{ question }}
+
+{% if evidence %}
+## Evidence
+{{ evidence }}
+{% endif %}
+
+## Value Linking
+The following literal values have been identified for filtering:
+```json
+{{ value_linking }}
+```
+
+{% if schema_linking_fewshot_examples %}
+{{ schema_linking_fewshot_examples }}
+{% endif %}
+
+## Instructions
+
+1. **Read the question carefully** and identify key entities, attributes, and conditions.
+2. **Match to table columns** based on column names, descriptions, and sample values.
+3. **Identify filter columns** — which columns should be used for filtering (WHERE conditions).
+4. **Identify return columns** — which columns contain the answer.
+5. **Note ambiguities or risks**, such as:
+   - Column names that are abbreviations or unclear
+   - Potential NaN issues
+   - Value format mismatches
+
+{% if hints %}
+## 💡 Database Hints
+The following hints about this database may help with table relationships and join paths:
+{{hints}}
+{% endif %}
+
+## Output Format
+```json
+{
+    "thinking": "Step-by-step reasoning about which columns are relevant.",
+    "schema_linking": [
+        {
+            "phrase": "entity or concept from question",
+            "tables": ["table"],
+            "columns": ["table.column1"]
+        }
+    ],
+    "value_linking": [
+        "value_1",
+        "value_2"
+    ],
+    "ambiguities_and_risks": [
+        "Any ambiguities or risks, or 'None'"
+    ]
+}
+```

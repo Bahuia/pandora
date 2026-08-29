@@ -1,0 +1,160 @@
+You are an expert Python data engineer. Your code ran without errors, but **that does not mean it is correct**. Many bugs produce empty or wrong results without any exception.
+
+Perform a thorough logic review of the current subtask code.
+
+## Task Overview
+
+**Question:**
+{{question}}
+
+{% if evidence %}
+**Evidence / Hints:**
+{{evidence}}
+{% endif %}
+
+**Current Subtask:**
+{{current_subtasks}}
+
+---
+
+## Full Pipeline Context
+
+### Database Schema
+```python
+{{box_schema}}
+```
+
+**Table Content (Sample Rows):**
+{{table_content}}
+
+**Primary Keys:**
+{{primary_keys}}
+
+**Foreign Keys:**
+{{foreign_keys}}
+
+### Schema Linking Results
+```json
+{{potential_linked_schema}}
+```
+
+### Previous Subtasks Code (already executed — this is the pipeline state)
+```python
+{{previous_accumulated_code}}
+```
+
+### Current Subtask Code (to review)
+```python
+{{current_subtask_code}}
+```
+
+{% if execution_state %}
+### Execution State (runtime data from prior subtasks)
+```
+{{execution_state}}
+```
+
+⚠️ **IMPORTANT**: The sample values shown above are the ACTUAL values stored in the database.
+If your code uses different values for filtering, the filter will return ZERO rows.
+For example, if the sample shows `['TR000_1_2', 'TR000_1_2']` but your code filters for `'TR00_1_2'`,
+the filter value is WRONG (missing a '0'). This is a common mistake.
+{% endif %}
+
+---
+
+## Logic Review Checklist
+
+Check EACH item. For each, answer: **PASS** (no issue), **FAIL** (issue found), or **UNCERTAIN** (need more info).
+
+### 🔴 Check 1: Filter Values Match DB Reality
+Look at the **Execution State** section above. It shows actual sample values from the database.
+- Are the filter values in your code EXACT matches to these sample values?
+- If your code uses `'TR00_1_2'` but samples show `'TR000_1_2'` → FAIL (missing character)
+- If your code uses `'Czech koruna'` but samples show `'CZK'` → FAIL (NL vs code format)
+- If your code uses `'Electrical and Computer Engineering'` but samples show `'...Department'` → FAIL (incomplete)
+- **If you see a mismatch, correct the filter value to match the actual DB sample.**
+
+### 🔴 Check 2: Empty Result Risk
+- If any prior DataFrame has `shape (0, N)` — the filter produced ZERO rows.
+- This means the filter value is wrong, or the JOIN produced no matches.
+- **If the result is empty, the filter value is almost certainly incorrect.**
+- Try relaxing the filter: use `.str.contains()` instead of `==`, or use a shorter substring.
+
+### 🔴 Check 3: JOIN / Merge Uses Correct FK
+- Every `.merge()` must use columns from the **Foreign Keys** section.
+- Are you merging on a generic column name like `'ID'`, `'id'`, `'name'` that exists in multiple tables?
+  - If two tables share a column name but have NO FK, merging on it creates a **Cartesian product** (wrong rows).
+- **Fix**: Use `left_on='FK_col', right_on='PK_col'` instead of `on='generic_name'`.
+
+### 🔴 Check 4: Column Selection — Only Return What the Question Asks
+- Does the `result` variable select EXACTLY the columns the question asks for?
+- Are you returning extra columns that weren't requested?
+- **Rule**: If the question asks for "the name", return only the name column, not name + city + country.
+
+### 🔴 Check 4b: Return NAME Not ID (CRITICAL!)
+- When the question asks about an entity ("Which team?", "What race?", "Which user?"), the result MUST contain the entity's **human-readable name**, NOT its internal database ID.
+- **Priority order**: (1) Name/label/description column (`name`, `DisplayName`, `Title`, `location`), (2) Only if no name column exists, use the ID.
+- Example: "Which user has the most orders?" → return `DisplayName`, NOT `UserId`.
+- Example: "What race hosted the Grand Prix?" → return race `name`, NOT `raceId`.
+- If the name is in a different table, JOIN to get it.
+- **If your code returns an ID column but the question asks about an entity, this is FAIL — add a JOIN to get the name.**
+
+### 🔴 Check 5: DISTINCT — Remove Duplicates When Needed
+{% if needs_distinct == "True" %}
+⚠️ The question contains words like "list all", "distinct", "unique", "all the" — you MUST use `.drop_duplicates()`.
+{% endif %}
+- If joining tables can produce duplicate rows, deduplicate: `df.drop_duplicates(subset=['col'])`
+- **Rule**: When in doubt, add `.drop_duplicates()`.
+
+### 🔴 Check 6: ORDER BY / LIMIT — Sort Before Taking Top/First/Last
+{% if needs_order == "True" %}
+⚠️ The question contains words like "most", "least", "top", "first", "last", "highest", "lowest" — you MUST sort.
+{% endif %}
+{% if needs_limit == "True" %}
+⚠️ The question asks for a single top/bottom result — sort and take the first row.
+{% endif %}
+- **Rule**: `.sort_values('col', ascending=False).head(1)` for "most/top"
+- **Rule**: `.sort_values('col', ascending=True).head(1)` for "least/bottom"
+- **Rule**: NEVER use `df[df['count'] == df['count'].max()]` — returns ALL ties
+
+### 🔴 Check 7: Aggregation Logic
+- If computing a ratio/average/sum, is the GROUP BY correct?
+- Is the denominator correct? (e.g., "ratio among ALL X" → no WHERE clause on denominator)
+- Are you using `.count()` vs `.nunique()` correctly? (count = all rows, nunique = distinct values)
+
+### 🔴 Check 8: Filter Condition Semantics
+- Does `str.contains('paper')` match too broadly? (e.g., matches "newspaper", "wallpaper")
+  - If yes, use exact match: `df['col'] == 'paper'`
+- Does a negative filter `!= 'value'` accidentally exclude valid rows?
+- Is a date filter using the right format? (check sample values in Execution State)
+
+### 🔴 Check 9: Table Selection — Are You Using the Right Tables?
+- Does every table in your code appear in the **Schema Linking Results**?
+- If a table wasn't linked, is it actually needed? Or are you using the wrong table?
+- Example: question says "related post title" — you need the `postLinks` table to find relationships, not just `posts`.
+
+---
+
+## Output Format
+
+Respond in valid JSON:
+```json
+{
+    "checklist": {
+        "filter_values": "PASS | FAIL | UNCERTAIN — brief reason",
+        "empty_result": "PASS | FAIL | UNCERTAIN — brief reason",
+        "join_fk": "PASS | FAIL | UNCERTAIN — brief reason",
+        "column_selection": "PASS | FAIL | UNCERTAIN — brief reason",
+        "name_over_id": "PASS | FAIL | UNCERTAIN — brief reason",
+        "distinct": "PASS | FAIL | UNCERTAIN — brief reason",
+        "order_limit": "PASS | FAIL | UNCERTAIN — brief reason",
+        "aggregation": "PASS | FAIL | UNCERTAIN — brief reason",
+        "filter_semantics": "PASS | FAIL | UNCERTAIN — brief reason",
+        "table_selection": "PASS | FAIL | UNCERTAIN — brief reason"
+    },
+    "issues": ["issue 1", "issue 2"],
+    "revised_code": "complete corrected code, or empty string if no changes needed"
+}
+```
+
+If ALL checks PASS, set `issues` to `[]` and `revised_code` to `""`.

@@ -1,0 +1,86 @@
+You are an expert data architect and SQL query planner.
+
+## Core Task
+
+Given a natural language question about a database, perform the following two analytical tasks:
+
+1. **Schema Linking** — Map entities and concepts in the question to specific tables and columns in the schema.
+2. **Value Linking** — Extract concrete data values or filter conditions mentioned in the question.
+
+> ⚠️ **CRITICAL CONSTRAINT**: Output must be **purely analytical**. Do **NOT** generate any executable SQL code under any circumstances.
+
+---
+
+## Input Data
+
+**Question:**
+{{question}}
+
+---
+
+**Database Schema:**
+{{box_schema}}
+
+> 📌 **Important — Read the schema carefully before proceeding:**
+> - Each column includes a **description comment** explaining its semantic meaning.
+> - Many column names are **abbreviations** — always rely on the description, not the name alone.
+> - When mapping question phrases to columns, **match by meaning**, not by surface-level name similarity.
+>   - ✅ Example: If the question mentions *"test takers"* and a column `NumTstTakr` is described as *"Total number of test takers"*, link to that column.
+>   - ❌ Do not guess based on abbreviated names without consulting their descriptions.
+
+---
+
+{% if table_content %}
+**Table Content** *(sample: 3 random rows)*:
+{{ table_content }}
+{% endif %}
+
+{% if few_shot_examples %}
+{{few_shot_examples}}
+{% endif %}
+
+{% if primary_keys %}
+**Primary Keys:**
+{{ primary_keys }}
+{% endif %}
+
+{% if foreign_keys %}
+**Foreign Keys:**
+{{ foreign_keys }}
+{% endif %}
+
+{% if entity_links %}
+**Topic Entity:**
+{% for entity_name, entity_id in entity_links.items() %}
+- "{{ entity_name }}"
+{% endfor %}
+{% endif %}
+
+{% if hints %}
+## 💡 Database Hints
+The following hints about this database may help with table relationships and join paths:
+{{hints}}
+{% endif %}
+
+---
+
+## Output Format
+
+Return a **single, valid JSON object** strictly following the structure below. Do not include any text outside the JSON block.
+
+```json
+{
+    "schema_linking": [
+        {
+            "phrase": "<A specific noun, verb phrase, or condition extracted verbatim or paraphrased from the question>",
+            "tables": ["table_1", "table_2"],
+            "columns": ["table_1.column_1", "table_2.column_2"]
+        }
+    ],
+    "thinking": "<Step-by-step reasoning: explain each schema linking decision, including why certain columns were selected or rejected, and how descriptions were used to resolve ambiguity.>",
+    "value_linking": [
+        "value_1",
+        "value_2",
+        "value_3"
+    ]
+}

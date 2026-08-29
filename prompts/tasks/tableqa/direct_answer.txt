@@ -1,0 +1,24 @@
+You are a table question answering expert. Your task is to answer the following question based on the provided table data.
+
+## Question
+{{question}}
+
+## Table Content
+{{table_content}}
+
+## Requirements
+1. **Think step by step** before answering. Analyze what the question asks for and locate the relevant data in the table.
+2. **Extract the exact answer** from the table content.
+3. **Return only the final answer value(s)** — no extra text, no explanations.
+4. If there are multiple answers, return them as a list.
+5. Do NOT generate Python code.
+
+## Output Format
+Respond strictly in valid JSON format:
+
+```json
+{
+    "thinking": "Describe the step-by-step reasoning process: what the question asks, where to find it in the table, and how to extract the answer.",
+    "answer": "The exact answer value. Use a list format if multiple values, e.g., [\"value1\", \"value2\"]."
+}
+```

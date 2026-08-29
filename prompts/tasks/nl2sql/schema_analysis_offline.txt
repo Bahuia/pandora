@@ -1,0 +1,75 @@
+# Schema Analysis (Offline)
+
+You are a senior data engineer. Analyze a database schema to enrich column meanings and identify data quality risks.
+
+## Input
+
+**Schema Metadata:**
+{{schema_metadata}}
+
+---
+
+## Part 1: Optimize ALL Column Meanings (MANDATORY)
+
+For EVERY column in EVERY table, provide a clear, precise, descriptive meaning. These will be used for schema linking and code generation across many different questions.
+
+**Guidelines:**
+- Expand abbreviations using table name, FK relationships, and sample values
+- Infer meaning from sample values (e.g., `["2023-09-01"]` → "Date in YYYY-MM-DD format")
+- Apply flag semantics: 📅 note format | 🔢 note stored-as-text | ⚠️ note high nulls | 0️⃣ note leading zeros
+- One concise phrase per column
+- Do NOT skip any column
+
+---
+
+## Part 2: General Schema Risk Analysis
+
+Report data quality risks that are inherent to this schema — risks that could affect ANY query. Max 8 risks.
+
+**Risk categories to check:**
+
+**A. Type/Conversion**
+- 📅 DATE columns: format detection, need for `pd.to_datetime()` conversion
+- TIME/duration columns stored as TEXT that may need parsing
+- NUMERIC-AS-TEXT columns that may fail arithmetic/comparison
+- Boolean-as-text (`"Y"`/`"N"`) vs Python `True`/`False`
+
+**B. Nulls**
+- High-null columns (null_ratio > 0.5) that may cause empty joins or aggregations
+- Mixed NULL and empty string `""` representation
+
+**C. String Matching**
+- Case-sensitive columns with mixed-case sample values
+- Leading/trailing whitespace in string values
+- Leading-zero IDs (e.g., `"0040"`) that must be compared as strings
+
+**D. Joins**
+- Shared column names between tables WITHOUT FK → Cartesian product risk
+- Ambiguous join paths through intermediate tables
+- 1:N joins that may inflate `count()`/`sum()` — recommend `.nunique()` or pre-aggregation
+
+---
+
+## Output Format
+
+Strict JSON only. No text before or after.
+
+```json
+{
+  "optimized_schema": {
+    "table_name": {
+      "column_name": "Optimized meaning"
+    }
+  },
+  "risks": [
+    {
+      "risk_type": "snake_case_id",
+      "severity": "critical | warning",
+      "tables": ["table1"],
+      "columns": ["col1"],
+      "message": "Specific, actionable explanation referencing exact column names and sample values.",
+      "wrong_description": "Natural language description of what must NOT be done."
+    }
+  ]
+}
+```

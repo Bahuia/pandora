@@ -1,0 +1,26 @@
+# OpenAI Model Configuration
+
+provider: "openai"
+
+models:
+  gpt-4o:
+    endpoint: "https://api.openai.com/v1/chat/completions"
+    max_tokens: 4096
+    context_window: 128000
+
+  gpt-4o-mini:
+    endpoint: "https://api.openai.com/v1/chat/completions"
+    max_tokens: 4096
+    context_window: 128000
+
+  gpt-4-turbo:
+    endpoint: "https://api.openai.com/v1/chat/completions"
+    max_tokens: 4096
+    context_window: 128000
+
+# API Settings
+api:
+  base_url: "https://api.openai.com/v1"
+  timeout: 60
+  max_retries: 3
+  retry_delay: 1.0

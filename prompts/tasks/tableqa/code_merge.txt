@@ -1,0 +1,282 @@
+You are an excellent data scientist and Python programmer. You can capture the link between the question and corresponding database schema and perfectly generate valid Python Pandas program query to answer the question.
+
+## Task
+Based on the question's semantics, you have been provided with Python code snippets for individual subtasks. Please integrate these snippets into a complete, runnable Python program that performs the query required by the question.
+
+🔴 CRITICAL: Do NOT define or mock any DataFrames yourself (no `pd.DataFrame({...})`, no sample data).
+All tables are **pre-loaded** by the executor and already exist as DataFrames in the execution environment.
+Your fused code should assume all tables are available — only focus on merging, filtering, and logic.
+
+## ⚠️ CRITICAL: Return EXACTLY What the Question Asks — Neither More Nor Less
+
+**Return the answer to the question asked; never add anything unnecessary, and never leave anything unanswered!**
+
+### Rule 1: Do NOT return extra columns
+- Columns used for filtering, sorting, or finding extreme values must NOT appear in the final output unless the question explicitly asks for them.
+- **Example:** Question asks "list the accounts with the lowest approved amount" → return ONLY `[account_id]`, NOT `[account_id, amount]`.
+- When in doubt: **if the question doesn't mention it, don't include it in `result`.**
+
+### Rule 2: Do NOT miss any requested column
+- **The question may ask for MULTIPLE things — some are entities (names, IDs), some are quantitative values (times, counts, amounts, percentages).** You MUST include ALL of them.
+- **Scan the ENTIRE question sentence by sentence.** Every clause that asks for something corresponds to one or more columns in the result.
+- **🔴 Common trap: "What/Which is X? Also tell me Y and Z."** — The first part ("What is X") asks for a quantitative value, the second part ("tell me Y and Z") asks for entity details. You MUST return both.
+  - **Example:** "What is the best lap time recorded? List the driver and race with such recorded lap time." → return `[milliseconds, forename, surname, race_name]`. The first sentence asks for the lap time VALUE, the second asks for the driver AND race. Missing `milliseconds` = incomplete answer.
+  - **Example:** "How many cards are there? Also list their names." → return `[count, name]`. The "How many" asks for a count, "list their names" asks for the names.
+  - **Example:** "What is the average salary of employees in IT? List their names." → return `[avg_salary, name]` or the individual rows with both salary and name.
+- **Aggregations (COUNT, AVG, SUM, MIN, MAX) ARE requested columns.** If the question asks "how many", "what is the average", "what is the total", the aggregated value is part of the answer and MUST be included.
+- **Self-check before assigning `result`:** Go through the question and highlight every thing it asks for. Does each highlighted item have a corresponding column in `result`? If not, ADD IT.
+
+### Rule 3: Column order should match the question's emphasis
+- If the question says "What is X? List Y and Z." → the result columns should be `[X, Y, Z]`, with X first (it was asked first).
+- If the question says "List Y and Z for the X with the most W." → result should be `[Y, Z]`, since W is only used for ranking.
+
+{{merge_fewshot_examples}}
+
+## Question
+{{question}}
+
+## Database Schema Used in Python
+```python
+{{box_schema}}
+```
+
+**IMPORTANT: Carefully understand each column's meaning in the schema above.**
+- Each column has a description comment explaining its full meaning
+- Many column names are abbreviations — rely on the descriptions, not the column names alone
+- When integrating code, use the exact column names as shown, but understand their meaning from the comments
+
+**Table Content (Random Three Rows):**
+{{table_content}}
+
+**Primary Keys:**
+{{primary_keys}}
+
+**Foreign Keys:**
+{{foreign_keys}}
+
+## Helpful Evidence To Solve the Task
+{{evidence}}
+
+## Potential Linked Schema
+```json
+{{potential_linked_schema}}
+```
+
+## Python Code Snippets (given; do not rewrite)
+```python
+{{code_reasoning_steps}}
+```
+
+## Requirements
+- **Evidence is ground truth:** Treat the provided *Evidence* as authoritative for interpreting domain terms, definitions, and thresholds (e.g., how a condition is defined). Do not override or reinterpret it.
+- **No .loc[] allowed:** The use of the `Patient.merge(Examination, on='ID').loc[Patient['Birthday'].idxmin()]` indexer is strictly prohibited.
+- **Schema is indicative, not exhaustive:** The *Potential Linked Schema* is a guide to likely relevant tables/columns; it may be incomplete or include unused fields. Use only what is necessary, and do not assume unlisted columns are unavailable.
+- **Result naming:** Assign the final query output to a variable named `result`. Do not print or format the output (no `print`), so it can be saved or reused later.
+- **Return ONLY what the question asks — NOTHING MORE (CRITICAL!):** The final `result` must contain EXACTLY the columns explicitly requested by the question, and NO others. This is the #1 cause of answer mismatches. Columns used for filtering, sorting, or computing (e.g., `amount` to find the minimum, `count` to find the max) must be dropped before assigning to `result`. Ask yourself: "Does the question explicitly ask me to return this column?" If no, DROP IT.
+- **Minimize returned columns:** Unless explicitly stated in the question, keep the number of fields (columns) returned in the final output as small as possible. For example, if the question asks for Jack's salary, return only the salary, not both the name and the salary.
+- **Consistent result types:** The returned results must be of the same type. Do not mix aggregated totals with individual records in the same output; return either the total or the individual records, but not both.
+- **Merge before extreme values:** When dealing with maximum or minimum values that involve multiple tables, always merge (join) the tables first before extracting the extreme values.
+- **Determine deduplication based on semantic intent:** Infer whether deduplication is needed from the question's natural language. If the question asks "how many [entity nouns]" (e.g., patients, circuits, cities), apply `.drop_duplicates()` or `.nunique()` on the target entity's primary key, as the intent is to count distinct real-world objects. If the question asks "how many times / records / occurrences", do **not** deduplicate, as the intent is to count events or rows. When multi-table merges are involved, be especially cautious of Cartesian-product inflation and default to deduplicating on the primary key of the entity being counted.
+
+### 🔴 CRITICAL: Before Writing Final Code — Self-Check Every Filter and the Result
+
+After assembling the merged code, go through the following checklist ONE BY ONE before assigning `result`. These are the most common causes of wrong answers:
+
+#### Check 1: Numeric Columns Compared with String Literals
+If any column filter uses `==`, `!=`, `>=`, `<=`, `>`, `<` with a **quoted number** (e.g., `'180'`, `'0'`, `'1'`, `'40'`), this is almost certainly WRONG — numeric columns in the database store actual numbers, not strings.
+- ❌ `df['baseSetSize'] == '180'` → will match ZERO rows
+- ❌ `df['isStorySpotlight'] == '1'` → boolean column compared with string
+- ❌ `df['CardID'] == '667467'` → ID column compared with string
+- ❌ `df['year'] == '2008'` → year column compared with string
+- ✅ `df['baseSetSize'] == 180`
+- ✅ `df['isStorySpotlight'] == 1`
+- ✅ `df['CardID'] == 667467`
+- ✅ `df['year'] == 2008`
+- **Exception:** Columns named `frameVersion`, `CharterNum`, `NCESDist`, `SOC`, `DOC`, `EdOpsCode`, `rtype` are stored as strings in the database — do NOT change these.
+
+#### Check 2: COUNT / HOW MANY Question Without Aggregation
+If the question contains "how many", "count", "number of", "total", "what is the average", "what is the sum", the answer MUST be a single aggregated value.
+- ❌ Filter rows and return them → `result = list(filtered_df.itertuples(...))` returns rows, NOT a count
+- ✅ `result = [(len(filtered_df),)]` → returns a count
+- ✅ `result = [(df['col'].sum(),)]` → returns a sum
+- **Rule:** If the question asks "how many X" or "what is the average/total", the result should be `[(value,)]` format with a single tuple containing the aggregated value.
+
+#### Check 3: Date Column Compared with String Without Conversion
+If the question mentions a date and the code filters a date column (name contains "Date", "date", "Time", "birthday") using `==` with a string literal, you MUST handle the possibility that the database stores dates with timestamps.
+- ❌ `df['Date'] == '2015-05-01'` → misses rows if DB stores `'2015-05-01 00:00:00'`
+- ✅ `df['Date'].astype(str).str.startswith('2015-05-01')` → matches any timestamp on that date
+- ✅ `pd.to_datetime(df['Date']).dt.strftime('%Y-%m-%d') == '2015-05-01'`
+
+#### Check 4: LIKE / Fuzzy Match Translated to Exact Match
+If the question implies a fuzzy/substring match (contains "containing", "about", "includes", "has the word", "the word", "the term"), but the code uses `==` with an exact string, change it to `.str.contains()`.
+- ❌ `df['Title'] == 'linear regression'` → misses "Introduction to linear regression"
+- ❌ `df['q2'] == '0:01:40'` → misses '1:40.123'
+- ✅ `df['Title'].str.contains('linear regression', case=False, na=False)`
+- ✅ `df['q2'].str.contains('1:40', na=False)`
+
+#### Check 5: Filter Value Matches the Question Exactly
+Verify every string filter value matches what the question says, or the known database value.
+- ❌ `df['Nationality'] == 'America'` → DB stores `'American'`
+- ✅ `df['Nationality'] == 'American'`
+- ❌ `df['type'] == 'Owner'` → DB may store `'OWNER'` or `'Disponent'`
+- **Always check:** Is the value from the question the exact string stored in the DB? If unsure, check the Table Content samples above.
+
+#### Check 6: Subquery / Two-Step Lookup
+If the question requires finding an intermediate value first (e.g., "the youngest client", "the lowest reputation", "the most points"), you MUST compute that intermediate value BEFORE filtering.
+- ❌ Direct filter without computing the intermediate: `df[df['district_id'] == ???]`
+- ✅ Two-step: `youngest = df.sort_values('birth_date', ascending=False).iloc[0]; result = df[df['district_id'] == youngest['district_id']]`
+
+#### Check 7: Result Variable Exists and Is Correctly Formatted
+The code MUST end with a `result = ...` assignment in the correct format.
+- ❌ No `result` variable at all
+- ❌ `result = len(df)` → scalar, not list of tuples
+- ❌ `result = df['col'].nunique()` → scalar
+- ❌ `result = df.shape[0]` → scalar
+- ✅ `result = [(len(df),)]` → list with single tuple
+- ✅ `result = list(final_df[['col']].itertuples(index=False, name=None))` → list of tuples
+
+#### Check 8: Return ONLY Columns the Question Asks For
+- ❌ Question: "list the accounts with the lowest amount" → code returns `[account_id, amount, type, date]`
+- ✅ Returns only `[account_id]` — amount was used to find the lowest, NOT to be returned
+- ❌ Question: "What is the birthday?" → code returns `[player_name, birthday]`
+- ✅ Returns only `[birthday]`
+
+---
+
+### Critical Guidelines for Code Generation
+
+1. **🔴 STRICT: Return ONLY the columns explicitly asked for — NOTHING MORE:** This is the most critical rule. The final `result` variable must contain EXACTLY and ONLY the columns that the question explicitly asks you to return. Columns used for filtering, sorting, or finding extreme values (e.g., `amount` to find the minimum, `count` to find the max) are INTERNAL and must be dropped before assigning to `result`. If the question asks "list the accounts with the lowest approved amount", return `[account_id]` ONLY — do NOT include `amount` in the result. Extra columns in `result` will cause answer mismatches and are WRONG.
+
+2. **Return separate columns for names — do NOT concatenate:** If the question asks for "full name and date of birth", return `forename`, `surname`, and `dob` as separate columns (e.g., `[['Christian', 'Klien', '1983-02-07']]`), NOT concatenated into a single string. If multiple administrator fields are asked, return each separately even if some are null.
+
+3. **Time/duration values are often strings:** Columns like `fastestLapTime`, `time`, or duration fields may be stored as strings (e.g., `"1:34:50.616"`). When comparing or sorting, do NOT convert to float. Use string comparison or sort the string values directly.
+
+4. **Follow the correct join path — use the right intermediate table:** To connect two tables, ensure you use the correct intermediate table. For example, to find loans by client gender, the correct path is `client → account → loan` (via `district_id` and `account_id`), NOT `client → disp → loan`. The `disp` table is a dispatcher table, not an account table. Always verify foreign key relationships before choosing join paths.
+
+5. **Choose the correct source table for data:** If the question asks for card names with a watermark, get the name from the `cards` table, NOT from `foreign_data` (which contains translated names). Get data from the entity's own table unless explicitly required otherwise.
+
+6. **String time/duration values: compare and sort as strings, NOT numbers:** Columns like `fastestLapTime`, `time`, `lap`, or duration fields are often stored as strings (e.g., `"1:34:50.616"`). Do NOT compare them to numeric values. To find the minimum time, use `.min()` on the string column directly — string comparison works correctly for these formats. Do NOT try `pd.to_numeric()` on them.
+
+7. **Type-aware joins:** Before merging two tables, verify the join key types match. If one key is `float64` and the other is `int64` or `object`, cast the mismatched column to match the other: `df['col'] = df['col'].astype(int)` or `df['col'] = df['col'].astype(str)`. Check the Execution State comments to see the actual dtypes.
+
+8. **🔴 CRITICAL: LIMIT 1 Semantics — NEVER Use `== .max()` or `== .min()` to Find Top Result:**
+   If the question asks "Which ... has the most/highest/fastest/least/oldest/lowest/largest/smallest?",
+   return ONLY the top 1 entry (equivalent to SQL `ORDER BY ... DESC LIMIT 1`).
+
+   ❌ **ABSOLUTELY FORBIDDEN** — returns ALL tied entries, NOT LIMIT 1:
+   ```python
+   # WRONG — returns EVERY row that ties for max/min. This is the #1 cause of answer mismatches!
+   result = df[df['count'] == df['count'].max()]
+   result = df[df['amount'] == df['amount'].min()]
+   # NEVER use == .max() or == .min() for filtering the top result!
+   ```
+
+   ✅ **CORRECT patterns** (returns exactly 1):
+   ```python
+   # Pattern A: sort_values + head(1) — RECOMMENDED for deterministic tie-breaking
+   # When there are ties, add a secondary sort on the target column (DESC) to match SQL behavior
+   result = list(df.sort_values(['count', 'County'], ascending=[False, False]).head(1)[['County']].itertuples(index=False, name=None))
+
+   # Pattern B: idxmax on a Series (returns exactly 1, first occurrence)
+   top_row = df.loc[df['count'].idxmax()]
+   result = [[top_row['County']]]
+   ```
+
+   **⚠️ Tie-breaking matters:** When multiple groups have the same count, Pandas' groupby
+   uses alphabetical order (A→Z), but SQL's ORDER BY DESC reverses the input order (Z→A).
+   Add a secondary sort with the target column in DESC order to match SQL behavior.
+
+9. **🔴 If the question asks "which/what" — return the NAME, NOT the ID:** When the question asks about an entity ("Which team?", "What is the race?", "Which user?", "Which city?"), the result MUST contain the entity's human-readable name or label, NOT its internal database ID. Priority order: (1) Name/description/label column (e.g., `name`, `DisplayName`, `location`, `Title`), (2) Only if no name column exists, use the ID. If the name is in a different table, JOIN to get it. Example: "Which user has the most orders?" → return `DisplayName`, NOT `UserId`. "What race hosted the Grand Prix?" → return race `name`, NOT `raceId`.
+
+10. **Final result column check — self-verify before output:** Before assigning to `result`, explicitly verify: "Does the question ask me to return this column?" Go through each column in your final DataFrame: if the question didn't explicitly ask for it, DROP IT. The question "Among the accounts who have approved loan date in 1997, list out the accounts that have the lowest approved amount and choose weekly issuance statement" asks to "list out the accounts" → return ONLY `account_id`. The word "amount" is used to find the lowest, NOT to be returned.
+
+11. **Avoid unnecessary merges that inflate results:** If the data you need is already in one table, do NOT merge with another table that introduces duplicate rows. For example, if you need to count votes by user, do NOT merge with the users table before counting — it will duplicate rows and change the count.
+
+12. **Use `.str.contains()` with `regex=False` for literal matches:** When using `.str.contains()` to match literal text (especially `+`, `-`, or other regex metacharacters), always pass `regex=False`. Otherwise, regex errors or false matches will occur. For exact equality, prefer `==` instead.
+
+13. **🔴 CRITICAL: `len()` vs `.nunique()` — count rows vs count unique entities:**
+    After a JOIN, the same entity may appear in multiple rows. `len(df)` counts ALL rows,
+    while `.nunique()` counts unique values.
+
+    **Rule: default to `len(df)`. Only use `.nunique()` when question explicitly says "distinct", "different", or "unique".**
+
+    | Question says | Python | Why |
+    |---------------|--------|-----|
+    | "how many patients have X" | `len(df)` | Counts all matching rows |
+    | "how many distinct patients" | `.nunique()` | Explicit "distinct" |
+    | "how many different cities" | `.nunique()` | Explicit "different" |
+    | "how many unique users" | `.nunique()` | Explicit "unique" |
+
+    **Common trap:** After Patient-JOIN-Laboratory, one patient may have 10 lab records.
+    - `len(df)` = 10 (counts each lab record)
+    - `.nunique()` = 1 (counts unique patients)
+    If the question says "how many patients have X" without "distinct", use `len(df)`.
+
+    ❌ **WRONG** — used `.nunique()` when question didn't say distinct:
+    ```python
+    result = [(filtered['ID'].nunique(),)]  # WRONG — silently deduplicates
+    ```
+
+    ✅ **CORRECT** — counts all matching rows:
+    ```python
+    result = [(len(filtered),)]
+    ```
+
+### Notice:
+In the Python code you generate, the question should be solved step by step, rather than writing all the steps in only one line of code. Most importantly, all the final results should be consolidated into a table and stored in the variable `result: List[Tuple[Any, ...]]`. The result should maintain the same format as the SQL query result. In this format, the list represents the table, and the tuples inside the list correspond to the row data of the table. The column names and row names should not be stored in the result.
+
+**🔴 CRITICAL: NEVER use `.itertuples()` for intermediate variables — ONLY for final `result`:**
+The `.itertuples()` method returns a one-time-use iterator (zip object), NOT a DataFrame or list.
+- ❌ **FORBIDDEN:** `top_user = df.nlargest(1, 'count').itertuples(index=False)` — this is a zip object, NOT a value!
+- ❌ **FORBIDDEN:** `ids = df.itertuples(); user = ids[0]` — TypeError: zip not subscriptable
+- ✅ **CORRECT:** `top_user = df.nlargest(1, 'count')` — keep as DataFrame, then use `top_user.iloc[0]['UserId']`
+- ✅ **CORRECT:** `result = list(final_df[['name']].itertuples(index=False, name=None))` — ONLY for the final result
+
+**🔴 CRITICAL: Result Format — Use `itertuples`, NOT `to_records`!**
+
+To convert your final DataFrame to the required `List[Tuple[Any, ...]]` format, you MUST use:
+```python
+result = list(final_df[['col1', 'col2']].itertuples(index=False, name=None))
+```
+
+**NEVER use `.to_records()`** — it returns a numpy recarray, NOT a list of tuples, which will cause format mismatches:
+```python
+# ❌ WRONG — returns rec.array, NOT list of tuples
+result = final_df[['account_id']].to_records(index=False)
+
+# ✅ CORRECT — returns list of tuples
+result = list(final_df[['account_id']].itertuples(index=False, name=None))
+```
+
+**IMPORTANT: The examples below show cases where the question explicitly asked for BOTH columns.** If the question only asks for ONE thing, return ONLY ONE column.
+
+Example 1 — the question asked for "each country and how many stadiums":
+```python
+# The question explicitly asked for BOTH country name AND count → return both columns
+>>> df
+        country  count
+0        France      2
+1   Netherlands      5
+>>> result
+[('France', 2), ('Netherlands', 5)]
+```
+
+Example 2 — the question asked only for "how many":
+```python
+# The question only asked for the count → return ONLY the count, nothing else
+>>> df
+    count
+0       2
+>>> result
+[(2,)]
+```
+
+**Self-Check:** Before assigning `result`, verify: "Does the question ask me to return each of these columns?" If a column was only used for filtering/sorting/computing, DROP IT.
+
+## Output Formats
+```json
+{
+    "thinking": "Describe your thought process of integration.",
+    "code": "Present only the Python codes to answer the question."
+}
+```

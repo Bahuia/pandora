@@ -1,0 +1,21 @@
+# DeepSeek Model Configuration
+
+provider: "deepseek"
+
+models:
+  deepseek-chat:
+    endpoint: "https://api.deepseek.com/chat/completions"
+    max_tokens: 4096
+    context_window: 32000
+
+  deepseek-coder:
+    endpoint: "https://api.deepseek.com/chat/completions"
+    max_tokens: 4096
+    context_window: 16000
+
+# API Settings
+api:
+  base_url: "https://api.deepseek.com"
+  timeout: 60
+  max_retries: 3
+  retry_delay: 1.0

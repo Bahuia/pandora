@@ -1,0 +1,26 @@
+# TableQA Task Configuration
+
+task:
+  name: "tableqa"
+  description: "Table Question Answering"
+
+# Supported datasets
+datasets:
+  - wikitq
+  - wikisql
+
+# Dataset-specific settings
+wikitq:
+  table_path: "./data/wikitq/tables"
+  data_path: "./data/wikitq/{stage}.json"
+
+wikisql:
+  table_path: "./data/wikisql/csv"
+  data_path: "./data/wikisql/wikisql.{stage}.json"
+
+# Evaluation settings
+evaluation:
+  metrics:
+    - em           # Exact Match
+    - f1           # F1 Score
+    - denotation_accuracy

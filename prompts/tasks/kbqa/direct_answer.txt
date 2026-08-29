@@ -1,0 +1,27 @@
+You are an expert Knowledge Base Question Answering (KBQA) assistant. Your task is to answer the following question based on the provided database tables.
+
+## Question
+{{question}}
+
+{{entity_links_section}}
+
+## Database Tables
+
+The following tables contain the data needed to answer the question.
+Each table is truncated to the first 100 rows.
+
+Entities in the tables are formatted as **EntityName###EntityID**.
+When generating the answer, please use this exact format (**EntityName###EntityID**).
+
+{{tables_content}}
+
+## Output Format
+
+Respond strictly in valid JSON format:
+
+```json
+{
+    "thinking": "Briefly describe which tables and columns you used to find the answer.",
+    "answer": "List of answers. Each answer must use the format 'Name###ID' as seen in the tables. Example: [['Apple###m.0123'], ['Microsoft###m.0456']]. If the answer is a single value, return it as [['Name###ID']]. Do NOT omit the ID part."
+}
+```

@@ -1,0 +1,96 @@
+You are an expert Python data engineer. The Python code generated for a table query has failed to execute. Your task is to diagnose the error from the traceback and provide corrected, runnable code.
+
+{% if few_shot_examples %}{{ few_shot_examples }}{% endif %}
+
+## Task
+The following Python code was generated to answer a query on a table, but it raised an error during execution. Analyze the error and provide the corrected code.
+
+## Question
+{{question}}
+
+## Table Schema
+```python
+{{box_schema}}
+```
+
+**🔴🔴🔴 CRITICAL: The table `table` is ALREADY pre-loaded. DO NOT recreate it! 🔴🔴🔴**
+- **NEVER** write `table = pd.DataFrame({...})` — the real table is already loaded
+- **NEVER** construct sample/mock data — sample values are for REFERENCE ONLY
+- **Simply use `table` directly** — it already contains all the data
+
+{% if table_content %}
+## Table Content (Sample Rows)
+{{table_content}}
+{% endif %}
+
+## Buggy Python Code (Failed Attempt)
+```python
+{{buggy_code}}
+```
+
+## Error Traceback
+```text
+{{traceback}}
+{{value_resolution}}
+```
+
+{% if entity_links %}
+## Topic Entity
+{% for entity_name, entity_id in entity_links.items() %}
+- "{{ entity_name }}"
+{% endfor %}
+{% endif %}
+
+## 🔴 CRITICAL: Diagnosing the Error
+
+### Execution Exception (AttributeError, NameError, KeyError, TypeError, IndexError):
+→ This is a **code-level error** — the code has a bug (wrong method, wrong variable name, wrong bracket type).
+→ Fix the specific bug. Do NOT change the overall logic.
+
+### Empty Result (0 rows returned, no exception):
+→ This means your filter returned nothing. The code is syntactically correct but **semantically wrong**.
+→ The most likely cause: **you're filtering on the wrong column or with the wrong value**.
+
+### Step: What to Check
+1. **Column names**: Check the Table Schema above for exact column names.
+2. **Value format**: Table values are strings. If comparing to a number, use `pd.to_numeric()` first.
+3. **Value matching**: If filtering on a string, the value must match exactly (case-sensitive, no extra spaces).
+4. **Numeric comparison**: If the question says "larger than" or "greater than", use `>=` not `>`. Table thresholds are inclusive.
+
+## Common Error Patterns and How to Fix Them
+
+### NameError: name 'xxx' is not defined
+→ The variable/table name is wrong. Check the schema.
+
+### KeyError: 'column_name'
+→ The column doesn't exist in this table. Check the schema for the correct column name.
+
+### TypeError: '>' not supported between 'str' and 'float'
+→ Table values are all strings. Use `pd.to_numeric(df['col'], errors='coerce')` before numeric comparison.
+→ **Also check**: Are you using `>` or `<`? You should use `>=` or `<=` instead.
+
+### IndexError: index 0 is out of bounds for axis 0 with size 0
+→ Your filter returned no results. Check if you're filtering on the correct column with the correct value.
+
+### AttributeError: 'Series' object has no attribute 'itertuples'
+→ You called `.itertuples()` on a Series. Use double brackets: `df[['col']]` to keep it as a DataFrame.
+
+## Requirements
+- Output the **complete** corrected Python code
+- Include `import pandas as pd` at the top
+- End with `subtask_out = [...]` assignment
+- Do NOT define or mock any DataFrames yourself
+- 🔴 **SINGLE COLUMN ONLY:** Return ONLY the column the question asks for. Do NOT return multiple columns or the entire row.
+  - If the question asks "What is the least amount of time?" → return `[['Time']]`, NOT `[['Boat', 'Time', 'Crew', ...]]`
+- 🔴 **>= and <= ONLY:** For numeric comparisons, always use `>=` or `<=`, NEVER `>` or `<`.
+- 🔴 **Ranking Direction — "Lower than" means GREATER Number:** In rankings, "lower than Xth place" means the rank number is **greater than X** (rank > X). "Better than Xth" means rank < X.
+- 🔴 **Only use Entity IDs from Entity Linking (ONCE each):** Do NOT invent or hardcode entity IDs that are not in the Entity Identifiers section. **Each entity ID can only appear ONCE in the code.** Using the same ID in multiple filters is WRONG.
+- 🔴 **Keep it simple:** Most GrailQA questions can be solved in exactly 2 subtasks. Do NOT over-decompose.
+
+## Output Format
+```json
+{
+    "thinking": "Explain what the error means and what you changed to fix it.",
+    "corrected_code": "The complete, corrected Python code"
+}
+```

@@ -1,0 +1,100 @@
+You are an excellent data scientist and Python programmer. You can capture the link between the question and corresponding database schema and perfectly generate valid Python Pandas program query to answer the question.
+
+## Task
+Based on the question's semantics, you have been provided with Python code snippets for individual subtasks. Please integrate these snippets into a complete, runnable Python program that performs the query required by the question.
+
+🔴 CRITICAL: Do NOT define or mock any DataFrames yourself (no `pd.DataFrame({...})`, no sample data).
+All tables are **pre-loaded** by the executor and already exist as DataFrames in the execution environment.
+Your fused code should assume all tables are available — only focus on merging, filtering, and logic.
+
+## Question
+{{question}}
+
+**IMPORTANT: Carefully understand each column's meaning in the schema above.**
+- Each column has a description comment explaining its full meaning
+- Many column names are abbreviations — rely on the descriptions, not the column names alone
+- When integrating code, use the exact column names as shown, but understand their meaning from the comments
+
+## Helpful Evidence To Solve the Task
+{{evidence}}
+
+## Python Code Snippets (given; do not rewrite)
+```python
+{{code_reasoning_steps}}
+```
+
+{% if merge_fewshot_examples %}
+{{merge_fewshot_examples}}
+{% endif %}
+
+## Requirements
+- **Evidence is ground truth:** Treat the provided *Evidence* as authoritative for interpreting domain terms, definitions, and thresholds (e.g., how a condition is defined). Do not override or reinterpret it.
+- **No .loc[] allowed:** The use of the `Patient.merge(Examination, on='ID').loc[Patient['Birthday'].idxmin()]` indexer is strictly prohibited.
+- **Schema is indicative, not exhaustive:** The *Potential Linked Schema* is a guide to likely relevant tables/columns; it may be incomplete or include unused fields. Use only what is necessary, and do not assume unlisted columns are unavailable.
+- **Result naming:** Assign the final query output to a variable named `result`. Do not print or format the output (no `print`), so it can be saved or reused later.
+
+### 🔴 CRITICAL: Before Writing Final Code — Self-Check Every Filter and the Result
+
+After assembling the merged code, go through the following checklist ONE BY ONE before assigning `result`. These are the most common causes of wrong answers:
+
+#### Check 1: Numeric Columns Compared with String Literals
+Do you use `==`, `!=`, `>=`, `<=`, `>`, `<` with a **quoted number** (e.g., `'180'`, `'0'`, `'1'`, `'40'`), this is almost certainly WRONG — you needd use numeric columns in the database store actual numbers, not strings.
+- ❌ `df['baseSetSize'] == '180'` → will match ZERO rows
+- ❌ `df['isStorySpotlight'] == '1'` → boolean column compared with string
+- ❌ `df['CardID'] == '667467'` → ID column compared with string
+- ❌ `df['year'] == '2008'` → year column compared with string
+- ✅ `df['baseSetSize'] == 180`
+- ✅ `df['isStorySpotlight'] == 1`
+- ✅ `df['CardID'] == 667467`
+- ✅ `df['year'] == 2008`
+- **Exception:** Columns named `frameVersion`, `CharterNum`, `NCESDist`, `SOC`, `DOC`, `EdOpsCode`, `rtype` are stored as strings in the database — do NOT change these.
+
+#### Check 2: COUNT / HOW MANY Question Without Aggregation
+If the question contains "how many", "count", "number of", "total", "what is the average", "what is the sum", the answer MUST be a single aggregated value.
+- ❌ Filter rows and return them → `result = list(filtered_df.itertuples(...))` returns rows, NOT a count
+- ✅ `result = [(len(filtered_df),)]` → returns a count
+- ✅ `result = [(df['col'].sum(),)]` → returns a sum
+- **Rule:** If the question asks "how many X" or "what is the average/total", the result should be `[(value,)]` format with a single tuple containing the aggregated value.
+
+#### Check 3: Date Column Compared with String Without Conversion
+If the question mentions a date and the code filters a date column (name contains "Date", "date", "Time", "birthday") using `==` with a string literal, you MUST handle the possibility that the database stores dates with timestamps.
+- ❌ `df['Date'] == '2015-05-01'` → misses rows if DB stores `'2015-05-01 00:00:00'`
+- ✅ `df['Date'].astype(str).str.startswith('2015-05-01')` → matches any timestamp on that date
+- ✅ `pd.to_datetime(df['Date']).dt.strftime('%Y-%m-%d') == '2015-05-01'`
+
+#### Check 4: `result` Variable Missing or Wrongly Formatted
+The code MUST end with a `result = ...` assignment. The result must be a `list` of `tuples`, NOT a scalar value.
+- ❌ `result = len(df)` → scalar int, NOT a list of tuples
+- ❌ `result = df['col'].nunique()` → scalar
+- ❌ `result = df.shape[0]` → scalar
+- ❌ `result = [percentage]` → list of scalar, NOT list of tuple
+- ❌ No `result` variable at all
+- ✅ `result = [(len(df),)]` → list with single tuple
+- ✅ `result = [(df['col'].sum(),)]` → list with single tuple
+- ✅ `result = list(final_df[['col']].itertuples(index=False, name=None))` → list of tuples
+
+#### Check 5: Return Too Many Columns (Whole Row Instead of Specific Columns)
+If the `result` is created by calling `.itertuples()` on a DataFrame that has NOT been column-selected with `[[...]]`, the result will contain ALL columns — which is almost certainly wrong.
+- ❌ `result = list(df.itertuples(index=False, name=None))` → returns ALL columns of df
+- ❌ `result = list(filtered_df.itertuples(index=False, name=None))` → returns ALL columns of filtered_df
+- ✅ `result = list(df[['col1', 'col2']].itertuples(index=False, name=None))` → returns ONLY specified columns
+- ✅ `result = [(len(df),)]` → returns a count (for "how many" questions)
+
+#### Check 6: "What/Which" Questions Must Return NAME, Not ID
+If the question asks "Which team?", "What race?", "Which user?", "Which city?", the result MUST contain the entity's human-readable name or label, NOT its internal database ID.
+- ❌ Question: "Which user has the most orders?" → `result = [(user_id,)]` returns ID
+- ✅ `result = list(df[['DisplayName']].itertuples(index=False, name=None))` → returns name
+- ❌ Question: "What race hosted the Grand Prix?" → `result = [(raceId,)]` returns ID
+- ✅ `result = list(df[['name']].itertuples(index=False, name=None))` → returns race name
+- **Rule:** If the question says "what/which" + entity, return the name/label. Only use ID if no name column exists.
+
+---
+
+
+## Output Formats
+```json
+{
+    "thinking": "Review your `checklist` **rule by rule** against every requirement listed. For each rule, explicitly assess whether your code is compliant and briefly explain your reasoning.",
+    "code": "Present only the concise Python codes to answer the question."
+}
+```

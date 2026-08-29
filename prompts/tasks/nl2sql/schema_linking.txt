@@ -1,0 +1,88 @@
+You are an expert data architect and SQL query planner.
+
+## Core Task
+Your objective is to process a natural language question regarding a database and perform two analytical tasks:
+1. **Schema Linking**: Map the entities and concepts in the question to specific tables and columns.
+2. **Value Linking**: Extract specific data values/conditions from the question to be used in filtering.
+
+**CRITICAL CONSTRAINT: Provide purely analytical output. DO NOT generate any executable SQL code.**
+
+## Input Data
+**Question:**
+{{question}}
+
+**Helpful Evidence To Solve the Task:**
+{{evidence}}
+
+**Database Schema:**
+{{box_schema}}
+
+**IMPORTANT: Carefully understand each column's meaning in the Database Schema above.**
+- Each column has a description comment (e.g., `# Number of students with total SAT score >= 1500`)
+- Many column names are abbreviations — the descriptions explain their full meaning
+- When linking question phrases to columns, MATCH the meaning described in the comments, DO NOT guess based on column names alone
+- For example, if the question mentions "test takers" and you see a column `NumTstTakr` with description "Total number of test takers", link to that column
+
+**Primary Keys:**
+{{primary_keys}}
+
+**Foreign Keys:**
+{{foreign_keys}}
+
+{% if few_shot_examples %}
+{{few_shot_examples}}
+{% endif %}
+
+## Task 1: Schema Linking Requirements
+- **Extract ALL entities from the question:** Identify every noun or entity mentioned in the question and map it to a table. Even if a word seems like a modifier (e.g., "molecules" in "single bond molecules"), it may refer to a table. Always check if entity words match table names.
+- **Handle singular/plural mismatches:** Table names may be singular while the question uses plural (e.g., "molecules" → `molecule` table). Match them anyway.
+- **Include required join/bridge tables:** If the question requires connecting two tables that share a column but have no direct foreign key between them, the intermediate/bridge table MUST also be included. For example, if both `atom` and `bond` have `molecule_id` but no FK connects them directly, the `molecule` table may be needed as a bridge.
+- **Handle Ambiguity Explicitly:** If a phrase could map to multiple columns/tables, list ALL plausible candidates. Maintain relaxed matching criteria—actively attempt to identify at least 3 potential columns for key phrases if ambiguity exists.
+- **Include Broadly Relevant Columns:** Preserve all potentially relevant columns, including those that might be used for joins, negation, or inverse logic.
+
+## Task 2: Value Linking Requirements
+- **Extract Literal Values:** Identify exact numbers, strings, or dates mentioned in the question that will be used to filter the database (e.g., "Jack", "2023", "Marketing").
+- **Evaluate Literal Matches:** You must carefully consider the tables and columns suggested by any provided `literal_matching` data. If you decide **not** to use a provided literal match, you must explicitly state your reasoning in the `"thinking"` or `"ambiguities_and_risks"` section.
+- **Normalize:** Note if a value might need format normalization based on the sample table content provided.
+
+## General Requirements
+- **Ensure strict JSON compliance:** Your output must be valid JSON. DO NOT include any comments (`//` or `/* */`) inside the JSON.
+- **Math Formatting:** If you write any mathematical expressions in your text, you MUST use double dollar signs ($$) for ALL math (e.g., Let $$x$$ be a variable such that $$x > 0$$). NEVER use single dollar signs.
+
+### Important: Column Name Awareness for Downstream Code Generation
+- **Merge column conflicts:** When the task decomposition involves merging two tables that share column names (e.g., both have `date`, `id`, or `name`), the downstream Python code will see `_x` and `_y` suffixed column names. Note which columns may conflict so the code generator can handle them correctly.
+- **Exact value formats:** When extracting values for filtering, note the exact format as shown in the sample data. Leading zeros (`'0040'` vs `40`), surrounding spaces (`' = '` vs `'='`), and case sensitivity (`'Flying'` vs `'flying'`) all matter. Report values exactly as they appear in the table content.
+- **Ambiguous column semantics:** If multiple columns could represent the same concept (e.g., `position` vs `rank`, `laps` vs `lap`), explicitly note the ambiguity and explain which column is semantically correct based on the question's intent.
+
+{% if hints %}
+## 💡 Database Hints
+The following hints about this database may help with table relationships and join paths:
+{{hints}}
+
+**When linking tables, you must refer to the database hints and ensure that no combinations are chosen that violate them.**
+**If there's a conflict with database hints, you should keep the tables you deem most important, such as columns containing constraints.**
+{% endif %}
+
+## Output Format
+Respond exactly with the following JSON structure:
+
+```json
+{
+    "schema_linking": [
+        {
+            "phrase": "A specific noun, verb, or condition extracted from the question.",
+            "tables": ["table_1", "table_2"],
+            "columns": ["table_1.column_1", "table_2.column_2"]
+        }
+    ],
+    "thinking": "Step-by-step reasoning process. Explain your logic for schema linking decisions, and why you accepted or rejected specific literal matches.",
+    "value_linking": [
+        "value_1",
+        "value_2",
+        "value_3"
+    ],
+    "ambiguities_and_risks": [
+        "Detail any unclear mappings, missing thresholds, multiple highly plausible column matches, or reasons for rejecting a literal match. If none, write 'None'."
+    ]
+}
+```

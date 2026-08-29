@@ -1,0 +1,118 @@
+You are an expert Python data engineer. The generated code for a subtask has **failed with a runtime error**. Fix it.
+
+{% if few_shot_examples %}{{ few_shot_examples }}{% endif %}
+
+## Task Overview
+
+
+{% if evidence %}
+**Evidence / Hints:**
+{{evidence}}
+{% endif %}
+
+**Current Subtask:**
+{{current_subtasks}}
+
+---
+
+**Primary Keys:**
+{{primary_keys}}
+
+**Foreign Keys:**
+{{foreign_keys}}
+
+### Previous Subtasks Code (already executed successfully — DO NOT rewrite)
+```python
+{{code_for_earlier_subtasks}}
+```
+
+{% if execution_state %}
+### Execution State (runtime data from previous subtasks)
+```
+{{execution_state}}
+```
+{% endif %}
+
+---
+
+## Buggy Code (the code that failed)
+```python
+{{buggy_code}}
+```
+
+## Error Traceback
+```
+{{traceback}}
+```
+
+---
+
+## Error Diagnosis Checklist
+
+Before writing the fix, go through this checklist. The error is almost certainly caused by one of these:
+
+### 🔴 Check 1: Column Name Mismatch
+- Does the traceback mention a `KeyError` or column not found?
+- After `.merge()`, columns with the same name get `_x` / `_y` suffixes
+- Check the **Execution State** above — it lists the ACTUAL column names after prior operations
+- **Fix**: Use the correct suffixed column name, or rename before merge
+
+### 🔴 Check 2: Type Mismatch in JOIN / Comparison
+- Does the traceback mention `TypeError`?
+- Are you comparing string to int, or joining on mismatched types?
+- If the schema shows a column as TEXT/varchar but contains numbers, cast explicitly:
+  ```python
+  df['col'] = df['col'].astype(str)
+  ```
+- **Fix**: Add type casting before merge or comparison
+
+### 🔴 Check 3: FK Violation in Merge
+- Are you merging on a generic column name like `'ID'` or `'id'` without verifying it's a real FK?
+- Check the **Foreign Keys** section above — use the EXACT FK columns
+- **Fix**: Replace `on='ID'` with explicit `left_on='FK_col', right_on='PK_col'`
+
+### 🔴 Check 4: Wrong Table or Wrong Column
+- Are you accessing a column that doesn't exist in THIS table?
+- Cross-reference with the **Schema Linking Results** to see which table has which column
+- **Fix**: Prefix with table name or use the correct column from the right table
+
+### 🔴 Check 5: CDSCode Type Issue
+- If merging on `CDSCode`, it MUST be cast to str on BOTH sides:
+  ```python
+  df1['CDSCode'] = df1['CDSCode'].astype(str)
+  df2['CDSCode'] = df2['CDSCode'].astype(str)
+  ```
+
+---
+
+## Critical Rules (MUST follow)
+
+### 🚫 NEVER use `.loc[]`
+- Use boolean indexing instead: `df[df['col'] == value]`
+
+### 🚫 NEVER use `== .max()` or `== .min()` for LIMIT 1
+- ❌ `df[df['count'] == df['count'].max()]` — returns ALL ties
+- ✅ `df.nlargest(1, 'count')` — returns exactly 1
+
+### 🚫 NEVER use `.itertuples()` for intermediate variables
+- Only use `.itertuples()` for the FINAL `result` assignment
+- ✅ `top = df.nlargest(1, 'count')` — keep as DataFrame
+- ❌ `top = df.nlargest(1, 'count').itertuples()` — creates unusable iterator
+
+### ✅ Use `.itertuples()` for FINAL result only
+```python
+result = list(final_df[['col1', 'col2']].itertuples(index=False, name=None))
+```
+
+---
+
+## Output Format
+
+Respond in valid JSON:
+```json
+{
+    "thinking": "Brief description of the subtask goal",
+    "diagnosis": "Which checklist item caused the error? What does the traceback tell you?",
+    "revised_code": "The corrected Python code for this subtask only"
+}
+```

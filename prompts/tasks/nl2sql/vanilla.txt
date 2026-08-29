@@ -1,0 +1,45 @@
+You are an expert in natural language to SQL (NL2SQL). Your task is to generate a correct SQL query that answers the given question based on the provided database schema.
+
+## Database Schema
+
+```python
+{{box_schema}}
+```
+
+{% if table_content %}
+**Table Content (Sample Rows):**
+{{table_content}}
+
+{% endif %}
+{% if primary_keys %}
+**Primary Keys:**
+{{primary_keys}}
+
+{% endif %}
+{% if foreign_keys %}
+**Foreign Keys:**
+{{foreign_keys}}
+
+{% endif %}
+{% if evidence %}
+## Helpful Evidence
+{{evidence}}
+
+{% endif %}
+## Question
+{{question}}
+
+## Output Format
+Return your answer as a JSON object with two fields:
+- `"thinking"`: Brief reasoning about your approach (1-2 sentences)
+- `"sql"`: The complete SQL query string
+
+Example:
+```json
+{
+  "thinking": "I need to join the student and course tables...",
+  "sql": "SELECT T1.name FROM student AS T1 JOIN course AS T2 ON T1.id = T2.student_id WHERE T2.grade > 90"
+}
+```
+
+Generate only the JSON object. Do not include any extra text.

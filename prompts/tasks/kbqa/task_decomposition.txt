@@ -1,0 +1,120 @@
+You are an expert data architect and SQL query planner.
+
+## Core Task
+
+Given a natural language question about a database, decompose it into a sequence of **clear, ordered logical subtasks** that collectively answer the question.
+
+> ⚠️ **CRITICAL CONSTRAINT**: Output must be **purely analytical**. Do **NOT** generate any executable SQL or Python code under any circumstances.
+
+---
+
+## Input Data
+
+**Question:**
+{{question}}
+
+---
+
+**Linked Database Schema:**
+```python
+{{box_schema}}
+```
+
+> 📌 **Important — Read the schema carefully before proceeding:**
+> - Each column includes a **description comment** explaining its full semantic meaning.
+> - When decomposing subtasks, **match question phrases to columns by their described meaning**, not by name similarity alone.
+
+---
+
+{% if table_content %}
+**Table Content** *(sample: 3 random rows)*:
+{{table_content}}
+{% endif %}
+
+{% if primary_keys %}
+**Primary Keys:**
+{{primary_keys}}
+{% endif %}
+
+{% if foreign_keys %}
+**Foreign Keys:**
+{{foreign_keys}}
+{% endif %}
+
+---
+
+**Value Linking:**
+{{value_linking}}
+
+{{value_resolution}}
+
+{% if hints %}
+## 💡 Database Hints
+The following hints about this database may help with table relationships and join paths:
+{{hints}}
+{% endif %}
+
+{% if entity_links %}
+**Topic Entity:**
+{% for entity_name, entity_id in entity_links.items() %}
+- "{{ entity_name }}"
+{% endfor %}
+{% endif %}
+
+---
+
+## Decomposition Rules
+
+Follow **all** of the rules below when generating subtasks. Violations will cause downstream failures.
+
+### 🔒 Rule 1 — Allowed Tables Only
+> Use **only** the tables listed here — **NO EXCEPTIONS**:
+> **`{{available_tables}}`**
+>
+> Do **NOT** mention, reference, or infer the existence of any other table, even if it seems relevant.
+
+### 🔗 Rule 2 — Respect Foreign Key Join Paths
+When a subtask involves joining two tables, verify the join path against the **Foreign Keys** list above.
+- ✅ Only join tables that are connected via a declared FK relationship.
+- ❌ Never join two tables solely because they share a column name — confirm it is a FK first.
+
+### 📉 Rule 3 — Minimize Returned Fields
+Return only the **minimum set of fields** strictly necessary to answer the question. Do not include extra columns for convenience.
+
+### 🔀 Rule 4 — Filter Column ≠ Return Column
+A column used as a **filter condition** must **not** simultaneously serve as the **returned answer field**. These roles must remain distinct.
+
+### 🔢 Rule 5 — Ranking Direction
+Interpret ranking language precisely:
+| Question Phrase | Correct Filter |
+|---|---|
+| "lower than Xth place" | `rank > X` |
+| "better than Xth place" | `rank < X` |
+| "Xth or worse" | `rank >= X` |
+| "Xth or better" | `rank <= X` |
+
+Always confirm the intended direction before writing a ranking subtask.
+
+---
+
+{% if few_shot_examples %}
+## Reference Examples
+{{few_shot_examples}}
+{% endif %}
+
+---
+
+## Output Format
+
+Return a **single, valid JSON object** strictly following the structure below. Do not include any text outside the JSON block.
+
+```json
+{
+    "thinking": "<Step-by-step reasoning: explain how you interpreted the question, which rules guided each decomposition decision, and why each subtask is necessary.>",
+    "task_decomposition": [
+        "Subtask 1: <concise description of the first logical step>",
+        "Subtask 2: <concise description of the second logical step>",
+        "..."
+    ]
+}
+```
