@@ -28,6 +28,7 @@ class WebQSPDataset(GrailQADataset):
     def __init__(self, data_root: str = "./data"):
         # Skip GrailQADataset.__init__ — we override everything
         from datasets.base import BaseDataset
+
         BaseDataset.__init__(self, name="webqsp", data_root=data_root)
         self.kg_path = Path(data_root) / "webqsp" / "box"
         self.schema_path = self.kg_path / "box_schema.json"
@@ -37,6 +38,7 @@ class WebQSPDataset(GrailQADataset):
         self._box_schema_cache = {}
         if self.schema_path.exists():
             from utils.file_utils import load_json
+
             self._box_schema_cache = load_json(str(self.schema_path))
             self.logger.info(f"Loaded box_schema for {len(self._box_schema_cache)} questions")
 
@@ -51,7 +53,9 @@ class WebQSPDataset(GrailQADataset):
             try:
                 with open(el_path, encoding="utf-8") as f:
                     self._entity_link_cache = json.load(f)
-                self.logger.info(f"Loaded entity links for {len(self._entity_link_cache)} questions")
+                self.logger.info(
+                    f"Loaded entity links for {len(self._entity_link_cache)} questions"
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to load entity link cache: {e}")
 
@@ -78,7 +82,10 @@ class WebQSPDataset(GrailQADataset):
             examples = [ex for ex in examples if str(ex.get("id", ex.get("qid", ""))) in qid_set]
             self.logger.info(f"Filtered to {len(examples)} examples by qid")
 
-        return examples
+        return self._filter_prepared_subset(examples)
+
+    def _example_id(self, example: dict) -> str:
+        return str(example.get("id", example.get("qid", "")))
 
     def get_gold_answer(self, example: dict) -> list:
         """

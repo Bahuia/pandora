@@ -14,7 +14,11 @@ processed artifacts are distributed under the applicable upstream terms:
 | BIRD | CC BY-SA 4.0 |
 | WikiTableQuestions | CC BY-SA 4.0 |
 | WikiSQL | BSD-3-Clause |
+| GrailQA | CC BY-SA 4.0 annotations; Freebase-derived BOX data under CC BY 2.5 |
+| WebQSP | Freebase-derived BOX data under CC BY 2.5; official annotation imported locally |
 
-Spider publisher assets are obtained from the official source and transformed
-locally. Consult [DATASETS.md](DATASETS.md) for source links and preparation
-commands.
+Spider and WebQSP publisher assets are obtained from their official sources and
+transformed locally. The KG BOX tables are adapted query-local extracts of the
+Freebase data dump; attribution and modification details are recorded in the
+companion data repository. Consult [DATASETS.md](DATASETS.md) for source links
+and preparation commands.

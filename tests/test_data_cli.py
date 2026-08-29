@@ -1,7 +1,16 @@
 import json
 from pathlib import Path
 
-from pandora_data.cli import _jsonl_to_json, _manifest, command_prepare, verify_dataset
+import requests
+
+import pandora_data.cli as data_cli
+from pandora_data.cli import (
+    _jsonl_to_json,
+    _manifest,
+    _materialize_webqsp,
+    command_prepare,
+    verify_dataset,
+)
 
 
 def _spider_source(root: Path) -> Path:
@@ -50,6 +59,61 @@ def test_spider_syn_reports_spider_dependency(tmp_path):
 
 def test_manifest_artifacts_materialize_their_own_dataset():
     manifest = _manifest()
-    for name in ("spider-syn", "bird", "wikitq", "wikisql"):
+    for name in ("spider-syn", "bird", "wikitq", "wikisql", "grailqa", "webqsp"):
         for artifact in manifest["datasets"][name]["artifacts"]:
-            assert artifact["target"].startswith(f"{name}/")
+            assert artifact["target"] == "." or artifact["target"].startswith(f"{name}/")
+
+
+def test_webqsp_official_conversion_uses_published_subset(tmp_path):
+    dataset_root = tmp_path / "webqsp"
+    dataset_root.mkdir()
+    (dataset_root / "subset.test.json").write_text(
+        json.dumps({"qids": ["WebQTest-0"]}), encoding="utf-8"
+    )
+    source = tmp_path / "WebQSP.test.json"
+    source.write_text(
+        json.dumps(
+            {
+                "Questions": [
+                    {
+                        "QuestionId": "WebQTest-0",
+                        "RawQuestion": "Who?",
+                        "ProcessedQuestion": "who",
+                        "Parses": [
+                            {
+                                "TopicEntityName": "Topic",
+                                "TopicEntityMid": "m.topic",
+                                "Answers": [{"AnswerArgument": "m.answer", "EntityName": "Answer"}],
+                            }
+                        ],
+                    },
+                    {"QuestionId": "WebQTest-1", "Parses": []},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _materialize_webqsp(source, dataset_root)
+
+    records = json.loads((dataset_root / "webqsp.test.json").read_text(encoding="utf-8"))
+    links = json.loads(
+        (dataset_root / "entity_link" / "webqsp.entity_link.test.json").read_text(encoding="utf-8")
+    )
+    assert [record["id"] for record in records] == ["WebQTest-0"]
+    assert records[0]["schema"] == "Topic: m.topic |"
+    assert links == {"WebQTest-0": {"Topic": "m.topic", "Answer": "m.answer"}}
+
+
+def test_cli_download_error_explains_proxy_and_source_options(monkeypatch, capsys, tmp_path):
+    def fail_prepare(*_args, **_kwargs):
+        raise requests.exceptions.SSLError("untrusted proxy certificate")
+
+    monkeypatch.setattr(data_cli, "command_prepare", fail_prepare)
+    result = data_cli.cli(["prepare", "--dataset", "webqsp", "--root", str(tmp_path / "data")])
+
+    assert result == 2
+    message = capsys.readouterr().err
+    assert "REQUESTS_CA_BUNDLE" in message
+    assert "--source" in message
+    assert "microsoft.com" in message

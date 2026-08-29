@@ -32,6 +32,7 @@ from models.registry import ModelRegistry
 from utils.config import Config
 from utils.logger import setup_logger
 
+
 def parse_args(argv=None):
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Pandora: Unified Text-to-Code Framework")
@@ -138,7 +139,7 @@ def parse_args(argv=None):
         type=int,
         default=1,
         help="Number of parallel sample workers (1 = sequential). "
-             "Each sample can also run n-votes in parallel (double parallelism).",
+        "Each sample can also run n-votes in parallel (double parallelism).",
     )
 
     # Sample settings
@@ -313,9 +314,13 @@ def main():
     logger = setup_logger("pandora", log_file=args.log_file)
     logger.info(f"Starting Pandora: task={args.task}, dataset={args.dataset}, model={args.model}")
 
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
     for handler in logger.handlers[:]:
-        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, logging.FileHandler
+        ):
             handler.setFormatter(formatter)
 
     # Override with command line args
@@ -420,7 +425,9 @@ def main():
             if args.mode == "vanilla":
                 exec_ok = bool(result.get("answer")) or result.get("metrics", {}).get("em", 0) > 0
             else:
-                exec_ok = result.get("python_results", {}).get("success", False) or not result.get("python_exception", True)
+                exec_ok = result.get("python_results", {}).get("success", False) or not result.get(
+                    "python_exception", True
+                )
             logger.info(f"  -> correct={is_correct}, exec_ok={exec_ok}, time={sample_time:.1f}s")
 
             # Thread-safe append + incremental save
@@ -450,30 +457,53 @@ def main():
         # Sort by original index to keep order
         sorted_results = sorted(results, key=lambda x: x[0])
         live_total = len(sorted_results)
+        live_evaluable_results = [
+            (idx, result, elapsed)
+            for idx, result, elapsed in sorted_results
+            if result.get("metrics", {}).get("evaluable", True)
+        ]
+        live_evaluated = len(live_evaluable_results)
         if args.mode == "vanilla":
             # VanillaAgent: use answer presence or EM > 0
             live_exec_ok = sum(
-                1 for _, r, _ in sorted_results
+                1
+                for _, r, _ in sorted_results
                 if bool(r.get("answer")) or r.get("metrics", {}).get("em", 0) > 0
             )
         else:
             live_exec_ok = sum(
-                1 for _, r, _ in sorted_results
-                if r.get("python_results", {}).get("success", False) or not r.get("python_exception", True)
+                1
+                for _, r, _ in sorted_results
+                if r.get("python_results", {}).get("success", False)
+                or not r.get("python_exception", True)
             )
-        live_correct = sum(1 for _, r, _ in sorted_results if r.get("metrics", {}).get("correct", False))
-        live_f1 = sum(float(r.get("metrics", {}).get("f1", 0.0)) for _, r, _ in sorted_results)
-        live_hit_1 = sum(float(r.get("metrics", {}).get("hit_1", 0.0)) for _, r, _ in sorted_results)
+        live_correct = sum(
+            1 for _, r, _ in live_evaluable_results if r.get("metrics", {}).get("correct", False)
+        )
+        live_f1 = sum(
+            float(r.get("metrics", {}).get("f1", 0.0)) for _, r, _ in live_evaluable_results
+        )
+        live_hit_1 = sum(
+            float(r.get("metrics", {}).get("hit_1", 0.0)) for _, r, _ in live_evaluable_results
+        )
         live_total_time = sum(t for _, _, t in sorted_results)
         live_metrics = {
             "total_samples": live_total,
+            "evaluated_samples": live_evaluated,
+            "unevaluable_samples": live_total - live_evaluated,
             "successful_executions": live_exec_ok,
             "correct_answers": live_correct,
-            "execution_success_rate": round(live_exec_ok / live_total, 4) if live_total > 0 else 0.0,
-            "exact_match_accuracy": round(live_correct / live_total, 4) if live_total > 0 else 0.0,
-            "average_f1": round(live_f1 / live_total, 4) if live_total > 0 else 0.0,
-            "average_hit_1": round(live_hit_1 / live_total, 4) if live_total > 0 else 0.0,
-            "average_execution_time_sec": round(live_total_time / live_total, 4) if live_total > 0 else 0.0,
+            "execution_success_rate": (
+                round(live_exec_ok / live_total, 4) if live_total > 0 else 0.0
+            ),
+            "exact_match_accuracy": (
+                round(live_correct / live_evaluated, 4) if live_evaluated else 0.0
+            ),
+            "average_f1": round(live_f1 / live_evaluated, 4) if live_evaluated else 0.0,
+            "average_hit_1": round(live_hit_1 / live_evaluated, 4) if live_evaluated else 0.0,
+            "average_execution_time_sec": (
+                round(live_total_time / live_total, 4) if live_total > 0 else 0.0
+            ),
         }
         output_data = {
             "test_config": {
@@ -497,14 +527,17 @@ def main():
             json.dump(output_data, f, indent=2, ensure_ascii=False, cls=_NumpyEncoder)
         em = live_metrics["exact_match_accuracy"]
         exec_rate = live_metrics["execution_success_rate"]
-        logger.info(f"Saved incremental results ({live_total}/{len(examples)}): EM={em:.1%}, ExecOK={exec_rate:.1%}")
+        logger.info(
+            f"Saved incremental results ({live_total}/{len(examples)}): EM={em:.1%}, ExecOK={exec_rate:.1%}"
+        )
 
     if num_workers > 1:
-        logger.info(f"Running with {num_workers} parallel workers (each with n_votes={args.n_votes} inner parallelism)")
+        logger.info(
+            f"Running with {num_workers} parallel workers (each with n_votes={args.n_votes} inner parallelism)"
+        )
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = [
-                executor.submit(_process_single_sample, i, ex)
-                for i, ex in enumerate(examples)
+                executor.submit(_process_single_sample, i, ex) for i, ex in enumerate(examples)
             ]
             for future in as_completed(futures):
                 future.result()  # re-raise any unhandled exception
@@ -517,22 +550,43 @@ def main():
     sorted_results = sorted(results, key=lambda x: x[0])
     wall_clock_sec = round(time.time() - main_start_time, 2)
     n = len(sorted_results)
+    evaluable_results = [
+        (idx, result, elapsed)
+        for idx, result, elapsed in sorted_results
+        if result.get("metrics", {}).get("evaluable", True)
+    ]
+    evaluated_n = len(evaluable_results)
     if args.mode == "vanilla":
         successful_executions = sum(
-            1 for _, r, _ in sorted_results
+            1
+            for _, r, _ in sorted_results
             if bool(r.get("answer")) or r.get("metrics", {}).get("em", 0) > 0
         )
     else:
         successful_executions = sum(
-            1 for _, r, _ in sorted_results
-            if r.get("python_results", {}).get("success", False) or not r.get("python_exception", True)
+            1
+            for _, r, _ in sorted_results
+            if r.get("python_results", {}).get("success", False)
+            or not r.get("python_exception", True)
         )
-    correct_answers = sum(1 for _, r, _ in sorted_results if r.get("metrics", {}).get("correct", False))
-    average_f1 = sum(float(r.get("metrics", {}).get("f1", 0.0)) for _, r, _ in sorted_results) / n if n else 0.0
-    average_hit_1 = sum(float(r.get("metrics", {}).get("hit_1", 0.0)) for _, r, _ in sorted_results) / n if n else 0.0
+    correct_answers = sum(
+        1 for _, r, _ in evaluable_results if r.get("metrics", {}).get("correct", False)
+    )
+    average_f1 = (
+        sum(float(r.get("metrics", {}).get("f1", 0.0)) for _, r, _ in evaluable_results)
+        / evaluated_n
+        if evaluated_n
+        else 0.0
+    )
+    average_hit_1 = (
+        sum(float(r.get("metrics", {}).get("hit_1", 0.0)) for _, r, _ in evaluable_results)
+        / evaluated_n
+        if evaluated_n
+        else 0.0
+    )
     total_time = sum(t for _, _, t in sorted_results)
     exec_rate = successful_executions / n if n > 0 else 0
-    em = correct_answers / n if n > 0 else 0
+    em = correct_answers / evaluated_n if evaluated_n > 0 else 0
 
     mode_label = "Vanilla" if args.mode == "vanilla" else "Pandora"
     summary = (
@@ -540,6 +594,7 @@ def main():
         f"{mode_label} {args.task.upper()} Test Complete\n"
         f"{'='*60}\n"
         f"Total samples: {n}\n"
+        f"Evaluated samples: {evaluated_n}\n"
         f"Workers: {num_workers} (outer) × {args.n_votes} (inner voting)\n"
         f"Successful executions: {successful_executions} ({exec_rate:.1%})\n"
         f"Correct answers: {correct_answers} (EM={em:.1%})\n"
@@ -554,6 +609,8 @@ def main():
 
     return {
         "total_samples": n,
+        "evaluated_samples": evaluated_n,
+        "unevaluable_samples": n - evaluated_n,
         "successful_executions": successful_executions,
         "correct_answers": correct_answers,
         "execution_success_rate": round(exec_rate, 4),

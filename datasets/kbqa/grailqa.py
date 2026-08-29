@@ -52,7 +52,9 @@ class GrailQADataset(BaseDataset):
             try:
                 with open(el_path, encoding="utf-8") as f:
                     self._entity_link_cache = json.load(f)
-                self.logger.info(f"Loaded entity links for {len(self._entity_link_cache)} questions")
+                self.logger.info(
+                    f"Loaded entity links for {len(self._entity_link_cache)} questions"
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to load entity link cache: {e}")
 
@@ -75,7 +77,29 @@ class GrailQADataset(BaseDataset):
             examples = [ex for ex in examples if str(ex.get("qid", "")) in qid_set]
             self.logger.info(f"Filtered to {len(examples)} examples by qid")
 
-        return examples
+        return self._filter_prepared_subset(examples)
+
+    def _example_id(self, example: dict) -> str:
+        return str(example.get("qid", ""))
+
+    def _filter_prepared_subset(self, examples: list) -> list:
+        """Select examples backed by a prepared BOX and a gold answer."""
+        prepared = []
+        for example in examples:
+            qid = self._example_id(example)
+            qid_dir = self.kg_path / "test" / qid
+            if qid in self._box_schema_cache and qid_dir.is_dir() and self.get_gold_answer(example):
+                prepared.append(example)
+
+        excluded = len(examples) - len(prepared)
+        if excluded:
+            self.logger.info(
+                "Selected %d prepared and evaluable examples; excluded %d without "
+                "complete BOX assets or gold answers",
+                len(prepared),
+                excluded,
+            )
+        return prepared
 
     def get_box_schema(self, qid: str) -> str:
         """Get box_schema string for a specific question."""
@@ -153,7 +177,7 @@ class GrailQADataset(BaseDataset):
         # Get set of schema table names that have data
         valid_tables = set(csv_to_schema_map.values())
 
-        lines = box_schema.split('\n')
+        lines = box_schema.split("\n")
         result_lines = []
         current_table = None
         current_block = []
@@ -161,7 +185,7 @@ class GrailQADataset(BaseDataset):
 
         for line in lines:
             stripped = line.strip()
-            table_match = re.match(r'^(\w+)\s*=\s*pd\.DataFrame\(\{', stripped)
+            table_match = re.match(r"^(\w+)\s*=\s*pd\.DataFrame\(\{", stripped)
             if table_match:
                 # Save previous block if it's a valid table
                 if current_table and current_table.lower() in {t.lower() for t in valid_tables}:
@@ -169,12 +193,12 @@ class GrailQADataset(BaseDataset):
 
                 current_table = table_match.group(1)
                 current_block = [line]
-                brace_depth = line.count('{') - line.count('}')
+                brace_depth = line.count("{") - line.count("}")
                 continue
 
             if current_block:
                 current_block.append(line)
-                brace_depth += line.count('{') - line.count('}')
+                brace_depth += line.count("{") - line.count("}")
 
                 # Check if we've closed the DataFrame
                 if brace_depth == 0 and current_table:
@@ -189,7 +213,7 @@ class GrailQADataset(BaseDataset):
             if current_table.lower() in {t.lower() for t in valid_tables}:
                 result_lines.extend(current_block)
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _match_csv_to_schema_tables(self, qid_dir: Path, box_schema: str) -> dict:
         """Match CSV files to box_schema table names by filename.
@@ -231,7 +255,9 @@ class GrailQADataset(BaseDataset):
 
         return csv_to_schema_map
 
-    def _build_table_content(self, qid_dir: Path, csv_to_schema_map: dict, entity_ids: Optional[list] = None) -> str:
+    def _build_table_content(
+        self, qid_dir: Path, csv_to_schema_map: dict, entity_ids: Optional[list] = None
+    ) -> str:
         """Build table_content string from CSV files using schema table names.
 
         If entity_ids are provided, ensures rows containing those IDs are included
@@ -271,14 +297,22 @@ class GrailQADataset(BaseDataset):
 
                 if entity_matched_cols:
                     # Build enriched sample: head(3) + entity-matched rows
-                    matched_df = pd.concat(entity_matched_rows, ignore_index=True) if entity_matched_rows else pd.DataFrame()
-                    combined = pd.concat([sample_rows, matched_df], ignore_index=True).drop_duplicates()
+                    matched_df = (
+                        pd.concat(entity_matched_rows, ignore_index=True)
+                        if entity_matched_rows
+                        else pd.DataFrame()
+                    )
+                    combined = pd.concat(
+                        [sample_rows, matched_df], ignore_index=True
+                    ).drop_duplicates()
 
                     # Add annotation about which columns contain entity IDs
                     col_notes = []
                     for col, matched_ids in entity_matched_cols.items():
-                        ids_str = ', '.join(f'`{eid}`' for eid in sorted(matched_ids))
-                        col_notes.append(f"  ⭐ Column '{col}' contains mentioned entity ID(s): {ids_str}")
+                        ids_str = ", ".join(f"`{eid}`" for eid in sorted(matched_ids))
+                        col_notes.append(
+                            f"  ⭐ Column '{col}' contains mentioned entity ID(s): {ids_str}"
+                        )
 
                     sample_text = combined.head(6).to_string(index=False)
                     note_text = "\n".join(col_notes)
@@ -330,9 +364,10 @@ class GrailQADataset(BaseDataset):
         # IDs are Freebase-style: m.XXXXX, g.XXXXX, cvt.XXXXX
         # Strategy: find all Freebase IDs and take the text before each as the entity name
         import re
+
         schema_entities = {}
         # Match Freebase IDs followed by space or end of string
-        id_pattern = re.compile(r'((?:cvt\.|m\.|g\.)\S+)(\s|$)')
+        id_pattern = re.compile(r"((?:cvt\.|m\.|g\.)\S+)(\s|$)")
         remaining = entity_part
         while remaining:
             m = id_pattern.search(remaining)
@@ -340,10 +375,10 @@ class GrailQADataset(BaseDataset):
                 break
             eid = m.group(1)
             # Text before the ID is the entity name (strip trailing whitespace and colons)
-            name = remaining[:m.start()].strip().rstrip(':').strip()
+            name = remaining[: m.start()].strip().rstrip(":").strip()
             if name:
                 schema_entities[eid] = name
-            remaining = remaining[m.end():]
+            remaining = remaining[m.end() :]
 
         if not schema_entities:
             return {}
@@ -478,6 +513,7 @@ class GrailQADataset(BaseDataset):
                 return True
             if isinstance(v, float):
                 import math
+
                 return math.isnan(v)
             return False
 
@@ -507,11 +543,23 @@ class GrailQADataset(BaseDataset):
 
         GrailQA answers are Freebase IDs or entity values — order doesn't matter.
         """
-        if not predicted and not gold:
-            return {"em": 1.0, "f1": 1.0, "hit_1": 1.0, "correct": True}
+        if not gold:
+            return {
+                "em": 0.0,
+                "f1": 0.0,
+                "hit_1": 0.0,
+                "correct": False,
+                "evaluable": False,
+            }
 
-        if not predicted or not gold:
-            return {"em": 0.0, "f1": 0.0, "hit_1": 0.0, "correct": False}
+        if not predicted:
+            return {
+                "em": 0.0,
+                "f1": 0.0,
+                "hit_1": 0.0,
+                "correct": False,
+                "evaluable": True,
+            }
 
         # Flatten and normalize
         pred_set = set()
@@ -556,6 +604,7 @@ class GrailQADataset(BaseDataset):
             "f1": f1,
             "hit_1": hit_1,
             "correct": em == 1.0,
+            "evaluable": True,
         }
 
     @staticmethod

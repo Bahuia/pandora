@@ -26,6 +26,8 @@ pytestmark = [
         ("nl2sql", "bird", "dev", 1534),
         ("tableqa", "wikitq", "test", 4344),
         ("tableqa", "wikisql", "test", 15878),
+        ("kbqa", "grailqa", "test", 6409),
+        ("kbqa", "webqsp", "test", 1598),
     ],
 )
 def test_paper_dataset_adapters_load(task, name, stage, expected):
@@ -43,6 +45,8 @@ def test_paper_dataset_adapters_load(task, name, stage, expected):
         ("nl2sql", "bird", "dev"),
         ("tableqa", "wikitq", "test"),
         ("tableqa", "wikisql", "test"),
+        ("kbqa", "grailqa", "test"),
+        ("kbqa", "webqsp", "test"),
     ],
 )
 def test_benchmark_first_example_preprocesses(task, name, stage):
@@ -56,6 +60,10 @@ def test_benchmark_first_example_preprocesses(task, name, stage):
         assert Path(processed["context"]["db_path"]).is_file()
     if task == "tableqa":
         assert not processed["context"]["table_df"].empty
+    if task == "kbqa":
+        assert processed["schema"]["box_schema"]
+        assert Path(processed["context"]["kg_dir"]).is_dir()
+        assert processed["context"]["csv_to_schema_map"]
 
 
 class _SmokeHandler(BaseHTTPRequestHandler):
@@ -104,18 +112,30 @@ def test_benchmark_cli_http_smoke(task, name, stage, compatible_endpoint, tmp_pa
     command = [
         sys.executable,
         str(Path(__file__).resolve().parents[1] / "run.py"),
-        "--mode", "vanilla",
-        "--task", task,
-        "--dataset", name,
-        "--stage", stage,
-        "--model", "pandora-smoke",
-        "--provider", "openai-compatible",
-        "--base-url", compatible_endpoint,
-        "--data-root", str(DATA_ROOT.resolve()),
-        "--output-dir", str(tmp_path),
-        "--shot-k", "0",
-        "--retrieval-mode", "disabled",
-        "--num-samples", "1",
+        "--mode",
+        "vanilla",
+        "--task",
+        task,
+        "--dataset",
+        name,
+        "--stage",
+        stage,
+        "--model",
+        "pandora-smoke",
+        "--provider",
+        "openai-compatible",
+        "--base-url",
+        compatible_endpoint,
+        "--data-root",
+        str(DATA_ROOT.resolve()),
+        "--output-dir",
+        str(tmp_path),
+        "--shot-k",
+        "0",
+        "--retrieval-mode",
+        "disabled",
+        "--num-samples",
+        "1",
     ]
     completed = subprocess.run(command, capture_output=True, text=True, timeout=60)
     assert completed.returncode == 0, completed.stderr

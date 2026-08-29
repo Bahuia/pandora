@@ -28,17 +28,40 @@ REQUIRED_FILES = {
     "prompts/tasks/kbqa/code_reasoning.txt",
     "pandora_data/manifests/benchmarks.json",
     "examples/run_spider.sh",
+    "examples/run_grailqa.sh",
+    "examples/run_webqsp.sh",
     "assets/pandora-overview.png",
     "assets/box-representation.png",
 }
 FORBIDDEN_ROOTS = {
-    "data", "results", "bad_cases", "temp", "manuscript", "figure",
-    "review", "response", "prompts/few_shot", ".idea",
+    "data",
+    "results",
+    "bad_cases",
+    "temp",
+    "manuscript",
+    "figure",
+    "review",
+    "response",
+    "prompts/few_shot",
+    ".idea",
 }
 FORBIDDEN_SUFFIXES = {
-    ".sqlite", ".sqlite3", ".db", ".duckdb", ".csv", ".tsv", ".jsonl",
-    ".parquet", ".npz", ".npy", ".pkl", ".pickle", ".pt", ".pth",
-    ".ckpt", ".safetensors",
+    ".sqlite",
+    ".sqlite3",
+    ".db",
+    ".duckdb",
+    ".csv",
+    ".tsv",
+    ".jsonl",
+    ".parquet",
+    ".npz",
+    ".npy",
+    ".pkl",
+    ".pickle",
+    ".pt",
+    ".pth",
+    ".ckpt",
+    ".safetensors",
 }
 SENSITIVE_PATTERNS = {
     "private IPv4 address": re.compile(
@@ -56,6 +79,8 @@ EVALUATION_SPLITS = {
     "bird": (DATA / "bird" / "bird.dev.json", 1534),
     "wikitq": (DATA / "wikitq" / "wikitq.test.json", 4344),
     "wikisql": (DATA / "wikisql" / "wikisql.test.json", 15878),
+    "grailqa": (DATA / "grailqa" / "grailqa.test.json", 6409),
+    "webqsp": (DATA / "webqsp" / "webqsp.test.json", 1598),
 }
 
 
@@ -135,9 +160,7 @@ def audit_assets() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--mode", choices=["repository", "benchmark-ready"], default="repository"
-    )
+    parser.add_argument("--mode", choices=["repository", "benchmark-ready"], default="repository")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()

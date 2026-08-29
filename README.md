@@ -51,9 +51,8 @@ interface:
 
 ## Benchmark Coverage
 
-The paper evaluates PANDORA on seven benchmarks spanning Text-to-SQL, TableQA,
-and KGQA. The current public data-preparation and execution workflow covers the
-following five benchmarks end to end:
+The public data-preparation and execution workflow covers the seven benchmarks
+evaluated in the paper across Text-to-SQL, TableQA, and KGQA:
 
 | Task | Benchmark | Split | Public preparation | Run script |
 |---|---|---:|---|---|
@@ -62,10 +61,8 @@ following five benchmarks end to end:
 | Text-to-SQL | BIRD | dev | Pandora annotation + official BIRD databases | `examples/run_bird.sh` |
 | TableQA | WikiTableQuestions | test | `pandora-data` download | `examples/run_wikitq.sh` |
 | TableQA | WikiSQL | test | `pandora-data` download | `examples/run_wikisql.sh` |
-
-The paper additionally reports KGQA experiments on GrailQA and WebQSP. See the
-[paper](https://ieeexplore.ieee.org/document/11627196) for the complete
-experimental setting.
+| KGQA | GrailQA | evaluation set from public validation data | Pandora annotation and BOX assets | `examples/run_grailqa.sh` |
+| KGQA | WebQSP | test | Official annotation import and Pandora BOX assets | `examples/run_webqsp.sh` |
 
 ## Installation
 
@@ -133,6 +130,31 @@ Download the development database package from the
 pandora-data prepare --dataset bird --source /path/to/official-bird-dev
 ```
 
+### GrailQA and WebQSP
+
+The KGQA preparation commands download the published query-local BOX assets,
+schemas, entity mappings, and subset manifests. GrailQA annotations are
+materialized from the versioned Pandora data repository. WebQSP annotations are
+downloaded from the official Microsoft package and converted locally:
+
+```bash
+pandora-data prepare --dataset grailqa
+pandora-data prepare --dataset webqsp
+```
+
+If the Microsoft download is handled outside Pandora, import the verified
+official archive directly:
+
+```bash
+pandora-data prepare --dataset webqsp --source /path/to/WebQSP.zip
+```
+
+The prepared evaluation sets contain 6,409 GrailQA questions drawn from the
+public validation data and 1,598 WebQSP questions, with aligned BOX assets and
+gold answers. `pandora-data verify`
+checks annotation identifiers, schema keys, entity-link keys, and BOX
+directories before inference.
+
 ### Verify all benchmarks
 
 ```bash
@@ -140,7 +162,7 @@ pandora-data status --root "$PANDORA_DATA_ROOT"
 pandora-data verify --dataset all --root "$PANDORA_DATA_ROOT"
 ```
 
-A successful installation reports all five datasets as `ready`. Downloads
+A successful installation reports all seven datasets as `ready`. Downloads
 support standard `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` variables, resume
 when the server supports byte ranges, and reuse the local cache. Exact source
 links, expected layouts, checksums, and licensing notes are documented in
@@ -198,6 +220,8 @@ evaluation:
 ./examples/run_bird.sh --num-samples 1
 ./examples/run_wikitq.sh --num-samples 1
 ./examples/run_wikisql.sh --num-samples 1
+./examples/run_grailqa.sh --num-samples 1
+./examples/run_webqsp.sh --num-samples 1
 ```
 
 The scripts read `PANDORA_DATA_ROOT`, `PANDORA_MODEL`, `PANDORA_PROVIDER`,
@@ -212,6 +236,8 @@ To run a complete benchmark split, omit `--num-samples`:
 ./examples/run_bird.sh
 ./examples/run_wikitq.sh
 ./examples/run_wikisql.sh
+./examples/run_grailqa.sh
+./examples/run_webqsp.sh
 ```
 
 For example, a direct Spider command equivalent to the public script is:
@@ -262,7 +288,7 @@ The JSON file is updated incrementally and contains:
 | Field | Description |
 |---|---|
 | `test_config` | Task, dataset, model, mode, retrieval, concurrency, and timestamp |
-| `accuracy_metrics` | Sample count, execution success, EM, average F1, Hit@1, and timing |
+| `accuracy_metrics` | Processed/evaluated sample counts, execution success, EM, average F1, Hit@1, and timing |
 | `total_time_sec` | Sum of per-sample execution times |
 | `wall_clock_time_sec` | End-to-end elapsed time |
 | `detailed_results` | Per-example question, prediction, execution state, metrics, and errors |
@@ -286,15 +312,16 @@ Run the deterministic unit suite without benchmark assets or model API calls:
 python -m pytest -m "not integration"
 ```
 
-After preparing all five benchmarks, run the integration suite:
+After preparing all seven benchmarks, run the integration suite:
 
 ```bash
 PANDORA_DATA_ROOT="$PANDORA_DATA_ROOT" python -m pytest -m integration
 ```
 
-The integration suite validates all five dataset adapters, first-example
-preprocessing, and complete CLI request/response paths through a local fake
-OpenAI-compatible endpoint. It does not consume model API credits.
+The integration suite validates all seven dataset adapters and first-example
+preprocessing. The five relational/table workflows additionally cover complete
+CLI request/response paths through a local fake OpenAI-compatible endpoint. It
+does not consume model API credits.
 
 Additional release checks are:
 
@@ -313,7 +340,7 @@ production security boundary.
 ## Reproducibility Notes
 
 - Processed public annotations are pinned to
-  `bahuia/pandora-data@v0.1.0-benchmark-preview` and verified with SHA256.
+  `bahuia/pandora-data@v0.2.0-benchmark-preview` and verified with SHA256.
 - Official Spider and BIRD database assets retain their publisher-provided
   contents and licenses.
 - Model APIs may change over time. Record the model identifier, endpoint

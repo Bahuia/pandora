@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use PANDORA, please cite the TKDE paper below."
 title: "PANDORA"
 type: software
-version: 0.1.0
+version: 0.2.0
 date-released: 2026-08-29
 repository-code: "https://github.com/Bahuia/pandora"
 url: "https://github.com/Bahuia/pandora"

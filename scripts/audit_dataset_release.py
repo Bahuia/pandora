@@ -20,10 +20,17 @@ SENSITIVE = {
     "likely API key": re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
 }
 FORBIDDEN_FIELDS = {
-    "prompt", "response", "instruction", "formatted_input", "seq_out", "struct_in",
-    "code_annotation", "model_output", "prediction",
+    "prompt",
+    "response",
+    "instruction",
+    "formatted_input",
+    "seq_out",
+    "struct_in",
+    "code_annotation",
+    "model_output",
+    "prediction",
 }
-REQUIRED_NOTICES = {"spider-syn", "bird", "wikitq", "wikisql"}
+REQUIRED_NOTICES = {"spider-syn", "bird", "wikitq", "wikisql", "grailqa", "webqsp"}
 
 
 def sha256(path: Path) -> str:
@@ -63,20 +70,33 @@ def audit(root: Path) -> list[str]:
             blockers.append(f"size mismatch: {artifact['path']}")
         if sha256(path) != artifact["sha256"]:
             blockers.append(f"checksum mismatch: {artifact['path']}")
-        records = 0
-        with path.open(encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                records += 1
-                record = json.loads(line)
-                forbidden = FORBIDDEN_FIELDS.intersection(nested_keys(record))
-                if forbidden:
-                    blockers.append(
-                        f"forbidden fields in {artifact['path']}:{line_number}: "
-                        + ", ".join(sorted(forbidden))
-                    )
-                    break
-        if records != artifact["records"]:
-            blockers.append(f"record count mismatch: {artifact['path']}")
+        if artifact["format"] == "jsonl":
+            records = 0
+            with path.open(encoding="utf-8") as handle:
+                for line_number, line in enumerate(handle, start=1):
+                    records += 1
+                    record = json.loads(line)
+                    forbidden = FORBIDDEN_FIELDS.intersection(nested_keys(record))
+                    if forbidden:
+                        blockers.append(
+                            f"forbidden fields in {artifact['path']}:{line_number}: "
+                            + ", ".join(sorted(forbidden))
+                        )
+                        break
+            if records != artifact["records"]:
+                blockers.append(f"record count mismatch: {artifact['path']}")
+        elif artifact["format"] == "json":
+            value = json.loads(path.read_text(encoding="utf-8"))
+            entries = len(value.get("qids", [])) if "qids" in value else len(value)
+            if entries != artifact["entries"]:
+                blockers.append(f"entry count mismatch: {artifact['path']}")
+        elif artifact["format"] == "tar.zst":
+            if artifact["bytes"] > 1024**3:
+                blockers.append(f"archive exceeds 1 GiB: {artifact['path']}")
+            if artifact.get("qids", 0) <= 0 or artifact.get("files", 0) <= 0:
+                blockers.append(f"archive inventory is incomplete: {artifact['path']}")
+        else:
+            blockers.append(f"unsupported artifact format: {artifact['format']}")
 
     for path in root.rglob("*"):
         if not path.is_file():

@@ -14,6 +14,8 @@ dataset repository and imports publisher assets where required.
 | BIRD | dev | [BIRD](https://bird-bench.github.io/) | CC BY-SA 4.0 |
 | WikiTableQuestions | test | [Stanford WikiTableQuestions](https://github.com/ppasupat/WikiTableQuestions) | CC BY-SA 4.0 |
 | WikiSQL | test | [Salesforce WikiSQL](https://github.com/salesforce/WikiSQL) | BSD-3-Clause |
+| GrailQA | evaluation set from public validation data | [OSU DKI GrailQA](https://dki-lab.github.io/GrailQA/) | CC BY-SA 4.0 annotations; Freebase BOX data under CC BY 2.5 |
+| WebQSP | test | [Microsoft WebQSP](https://www.microsoft.com/en-us/download/details.aspx?id=52763) | Official annotations imported locally; Freebase BOX data under CC BY 2.5 |
 
 Always review the publisher's current terms before downloading or redistributing
 benchmark content. Pandora's Apache-2.0 license applies only to source code.
@@ -31,13 +33,18 @@ pandora-data prepare --dataset spider-syn
 
 pandora-data prepare --dataset bird --source /path/to/official-bird-dev
 
+pandora-data prepare --dataset grailqa
+pandora-data prepare --dataset webqsp
+# Equivalent WebQSP import when the official archive was downloaded manually:
+pandora-data prepare --dataset webqsp --source /path/to/WebQSP.zip
+
 pandora-data verify --dataset all
 ```
 
 `--source` accepts an extracted directory, `.zip`, or tar archive. For
 `--dataset all`, it may also point to a directory containing `spider/` and
-`bird/` subdirectories. Downloads use standard `HTTP_PROXY`, `HTTPS_PROXY`, and
-`NO_PROXY` settings and resume from the local cache when the server supports
+`bird/` subdirectories. Downloads use standard `HTTP_PROXY`, `HTTPS_PROXY`,
+`NO_PROXY`, and `REQUESTS_CA_BUNDLE` settings and resume from the local cache when the server supports
 HTTP range requests.
 
 ## Materialized layout
@@ -56,10 +63,32 @@ pandora-data/
 │   └── dev_database/<db_id>/<db_id>.sqlite
 ├── wikitq/
 │   └── wikitq.test.json
-└── wikisql/
-    └── wikisql.test.json
+├── wikisql/
+│   └── wikisql.test.json
+├── grailqa/
+│   ├── grailqa.test.json
+│   ├── subset.test.json
+│   ├── entity_names.json
+│   ├── entity_link/grailqa.entity_link.test.json
+│   └── box/
+│       ├── box_schema.json
+│       └── test/<qid>/*.csv
+└── webqsp/
+    ├── webqsp.test.json
+    ├── subset.test.json
+    ├── entity_names.json
+    ├── entity_link/webqsp.entity_link.test.json
+    └── box/
+        ├── box_schema.json
+        └── test/<qid>/*.csv
 ```
 
 Downloaded artifacts are pinned to the revision recorded in
 `pandora_data/manifests/benchmarks.json`. `pandora-data verify` checks the
 materialized layout before inference.
+
+KG BOX archives contain query-local tables derived from the Freebase data dump.
+Google distributes Freebase data under
+[CC BY 2.5](https://creativecommons.org/licenses/by/2.5/). WebQSP's official
+annotation archive is downloaded directly from Microsoft and is not mirrored
+in the Pandora data repository.

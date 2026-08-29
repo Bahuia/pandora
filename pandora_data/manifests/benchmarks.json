@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "bahuia/pandora-data",
-  "revision": "v0.1.0-benchmark-preview",
+  "revision": "v0.2.0-benchmark-preview",
   "datasets": {
     "spider": {
       "task": "nl2sql",
@@ -12,8 +12,12 @@
       "expected_records": 1034,
       "official_assets": true,
       "artifacts": [],
-      "required_files": ["spider/spider.tables.dev.json"],
-      "sqlite_directories": {"spider/dev_database": 20}
+      "required_files": [
+        "spider/spider.tables.dev.json"
+      ],
+      "sqlite_directories": {
+        "spider/dev_database": 20
+      }
     },
     "spider-syn": {
       "task": "nl2sql",
@@ -32,7 +36,9 @@
           "sha256": "bf053b62e899e94c8605e8a6ab82605cee0db51445d5c2f0c280991db49ce190"
         }
       ],
-      "dependencies": ["spider"]
+      "dependencies": [
+        "spider"
+      ]
     },
     "bird": {
       "task": "nl2sql",
@@ -51,8 +57,12 @@
           "sha256": "8cccd166fbc0271ee6ba5bdccd83a8dd2a49eccf7df6801d42530cbb5b50c726"
         }
       ],
-      "required_files": ["bird/bird.tables.dev.json"],
-      "sqlite_directories": {"bird/dev_database": 12}
+      "required_files": [
+        "bird/bird.tables.dev.json"
+      ],
+      "sqlite_directories": {
+        "bird/dev_database": 12
+      }
     },
     "wikitq": {
       "task": "tableqa",
@@ -89,6 +99,118 @@
           "sha256": "c6995a178c728db9fc1e2449ac22981d09459fafae75adb1b84839b92f0a30a4"
         }
       ]
+    },
+    "grailqa": {
+      "task": "kbqa",
+      "stage": "test",
+      "license": "CC-BY-SA-4.0 and CC-BY-2.5",
+      "source_url": "https://github.com/dki-lab/GrailQA",
+      "source_split": "validation",
+      "annotation": "grailqa/grailqa.test.json",
+      "expected_records": 6409,
+      "official_assets": false,
+      "artifacts": [
+        {
+          "path": "processed/grailqa/subset.test.json",
+          "target": "grailqa/subset.test.json",
+          "format": "json",
+          "bytes": 102603,
+          "sha256": "9fc5a99499a6968919179a9f3f8a84b33547137fc496391cd9220381264e5940"
+        },
+        {
+          "path": "processed/grailqa/box_schema.json",
+          "target": "grailqa/box/box_schema.json",
+          "format": "json",
+          "bytes": 5242627,
+          "sha256": "12a3dc94ffe857fe1fbc2e0afb5a2604b39fed6992580174925a0ae82e0049a6"
+        },
+        {
+          "path": "processed/grailqa/entity_names.json",
+          "target": "grailqa/entity_names.json",
+          "format": "json",
+          "bytes": 1604858,
+          "sha256": "3306f4cd0b81611f69f12effe8df49951f192e374ed651bf6d5d670aef5fdf1f"
+        },
+        {
+          "path": "processed/grailqa/grailqa.test.jsonl",
+          "target": "grailqa/grailqa.test.json",
+          "format": "jsonl",
+          "bytes": 10529227,
+          "sha256": "8231862e118ad86289352ac88bab3981989595a95630b4330edf9d0567907ce4"
+        },
+        {
+          "path": "processed/grailqa/grailqa.entity_link.test.json",
+          "target": "grailqa/entity_link/grailqa.entity_link.test.json",
+          "format": "json",
+          "bytes": 1952212,
+          "sha256": "eeaff846faea7252d35e04a0c61819e26a1b6c1946f74a1cb6aadc4dd30fa26e"
+        },
+        {
+          "path": "processed/grailqa/grailqa.box.test.tar.zst",
+          "target": ".",
+          "format": "tar.zst",
+          "bytes": 23330322,
+          "sha256": "42dad786d899c0f0d785c252c9b67384e9c6b142881e9372cf88989b833f774a"
+        }
+      ],
+      "kg_assets": {
+        "id_field": "qid",
+        "subset": "grailqa/subset.test.json",
+        "schema": "grailqa/box/box_schema.json",
+        "entity_links": "grailqa/entity_link/grailqa.entity_link.test.json",
+        "entity_names": "grailqa/entity_names.json",
+        "box_directory": "grailqa/box/test"
+      }
+    },
+    "webqsp": {
+      "task": "kbqa",
+      "stage": "test",
+      "license": "CC-BY-2.5 BOX assets; official annotation terms",
+      "source_url": "https://www.microsoft.com/en-us/download/details.aspx?id=52763",
+      "official_download_url": "https://download.microsoft.com/download/f/5/0/f5012144-a4fb-4084-897f-cfda99c60bdf/WebQSP.zip",
+      "official_download_sha256": "95cb9cd2f6b4e1116ba4bec348f08a7f5ca2a5df4f223ea5af3f9b25a971b0ee",
+      "official_download_filename": "WebQSP.zip",
+      "annotation": "webqsp/webqsp.test.json",
+      "expected_records": 1598,
+      "official_assets": true,
+      "artifacts": [
+        {
+          "path": "processed/webqsp/subset.test.json",
+          "target": "webqsp/subset.test.json",
+          "format": "json",
+          "bytes": 24765,
+          "sha256": "a84c902ac3c8b883091ad5eb55ed511f9bde1603293eb3f9039248337de938a2"
+        },
+        {
+          "path": "processed/webqsp/box_schema.json",
+          "target": "webqsp/box/box_schema.json",
+          "format": "json",
+          "bytes": 1510459,
+          "sha256": "bbd710a8eaedb66a23ea69d677b98254db556abde32783a6ce3beaabf88c603b"
+        },
+        {
+          "path": "processed/webqsp/entity_names.json",
+          "target": "webqsp/entity_names.json",
+          "format": "json",
+          "bytes": 753174,
+          "sha256": "a0ed897e73cd34436833bb63c53d4ad80a13e14459e6f80e367a61a88fbed5f5"
+        },
+        {
+          "path": "processed/webqsp/webqsp.box.test.tar.zst",
+          "target": ".",
+          "format": "tar.zst",
+          "bytes": 91445173,
+          "sha256": "10e3fa6a1442fae5fb78a901f4153f37532a8bbd8121571930dfc3d5de1c70c8"
+        }
+      ],
+      "kg_assets": {
+        "id_field": "id",
+        "subset": "webqsp/subset.test.json",
+        "schema": "webqsp/box/box_schema.json",
+        "entity_links": "webqsp/entity_link/webqsp.entity_link.test.json",
+        "entity_names": "webqsp/entity_names.json",
+        "box_directory": "webqsp/box/test"
+      }
     }
   }
 }
