@@ -22,6 +22,7 @@ dynamic = ["dependencies"]
 
 [project.scripts]
 pandora = "run:cli"
+pandora-data = "pandora_data.cli:cli"
 
 [project.urls]
 Repository = "https://github.com/Bahuia/pandora"
@@ -32,11 +33,12 @@ py-modules = ["run"]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["configs*", "core*", "datasets*", "models*", "prompts*", "utils*"]
+include = ["configs*", "core*", "datasets*", "models*", "pandora_data*", "prompts*", "utils*"]
 
 [tool.setuptools.package-data]
 configs = ["**/*.yaml"]
 prompts = ["tasks/**/*.txt"]
+pandora_data = ["manifests/*.json"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}

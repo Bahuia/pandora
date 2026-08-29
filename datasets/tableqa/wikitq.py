@@ -177,12 +177,12 @@ class WikiTQDataset(BaseDataset):
         question = example.get("question", "")
         table_id = example.get("table_id", "")
 
-        # Load table from CSV
-        if table_id:
+        if example.get("table"):
+            df = self._build_dataframe(example)
+        elif table_id:
             df = self._load_csv(table_id)
         else:
-            # Fallback: build from embedded table
-            df = self._build_dataframe(example)
+            df = pd.DataFrame()
 
         # Cache the DataFrame
         self._table_cache[qid] = df

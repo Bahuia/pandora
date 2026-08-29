@@ -82,8 +82,14 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--base-url",
-        default=None,
+        default=os.environ.get("PANDORA_BASE_URL"),
         help="Explicit OpenAI-compatible API base URL (no proxy is configured by default)",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["auto", "openai", "deepseek", "qwen", "openai-compatible"],
+        default="auto",
+        help="Model provider; use openai-compatible with an explicit base URL",
     )
 
     # Inference settings
@@ -330,11 +336,15 @@ def main():
         config._config["retrieval"]["mode"] = "same_dataset"
     if args.retrieval_mode:
         config._config["retrieval"]["mode"] = args.retrieval_mode
+    if args.retrieval_mode == "disabled" or args.shot_k <= 0:
+        config._config["retrieval"]["enabled"] = False
 
     # Create model
     logger.info(f"Initializing model: {args.model}")
     model = ModelRegistry.create(
         model_name=args.model,
+        provider=None if args.provider == "auto" else args.provider,
+        api_key=os.environ.get("PANDORA_API_KEY"),
         temperature=args.temperature,
         base_url=args.base_url,
     )
@@ -356,8 +366,9 @@ def main():
     except (FileNotFoundError, NotADirectoryError) as exc:
         logger.error("%s", exc)
         logger.error(
-            "Benchmark assets are not distributed in this code-only release. "
-            "See DATASETS.md and pass --data-root /path/to/data."
+            "Prepare the benchmark with 'pandora-data prepare --dataset %s' and "
+            "pass --data-root /path/to/data. See DATASETS.md for details.",
+            args.dataset,
         )
         return 2
 

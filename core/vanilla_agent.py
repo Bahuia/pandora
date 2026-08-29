@@ -260,7 +260,7 @@ class VanillaAgent:
 
             if dataset_name in ("spider", "spider-syn"):
                 kb_dir = data_root / "spider" / "dev_database"
-                schema_file = data_root / "spider" / "spider.Tables.dev.json"
+                schema_file = data_root / "spider" / "spider.tables.dev.json"
             else:
                 kb_dir = data_root / "bird" / "dev_database"
                 schema_file = data_root / "bird" / "bird.tables.dev.json"

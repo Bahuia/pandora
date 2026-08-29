@@ -41,6 +41,7 @@ class ModelRegistry:
     def create(
         cls,
         model_name: str,
+        provider: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         temperature: float = 0.0,
@@ -64,7 +65,11 @@ class ModelRegistry:
         Raises:
             ValueError: If model provider is not supported
         """
-        provider = cls._detect_provider(model_name)
+        provider = provider or cls._detect_provider(model_name)
+        if provider == "openai-compatible":
+            if not base_url:
+                raise ValueError("--base-url is required for provider 'openai-compatible'")
+            provider = "openai"
 
         if provider == "openai":
             return OpenAIClient(

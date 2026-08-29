@@ -1,65 +1,65 @@
-# Dataset setup
+# Benchmark data
 
-This code-only release does not contain benchmark examples, databases, tables,
-Freebase triples, generated memory, or query-local KG BOXes. Download each asset
-from its publisher, review its terms, and keep it outside Git.
+Pandora uses a separate data root selected with `PANDORA_DATA_ROOT` or
+`--data-root`. `pandora-data` downloads Pandora-processed annotations from the
+versioned [bahuia/pandora-data](https://huggingface.co/datasets/bahuia/pandora-data)
+dataset repository and imports publisher assets where required.
 
-## Official sources
+## Sources and terms
 
-| Dataset | Publisher source |
-|---|---|
-| Spider | [Yale Spider repository](https://github.com/taoyds/spider) |
-| Spider-Syn | [Spider-Syn repository](https://github.com/ygan/Spider-Syn) |
-| BIRD | [BIRD benchmark](https://bird-bench.github.io/) |
-| WikiTableQuestions | [Stanford release](https://github.com/ppasupat/WikiTableQuestions/releases) |
-| WikiSQL | [Salesforce WikiSQL repository](https://github.com/salesforce/WikiSQL) |
-| GrailQA | [GrailQA repository](https://github.com/dki-lab/GrailQA) |
-| WebQSP | [WebQuestionsSP release](https://www.microsoft.com/en-us/download/details.aspx?id=52763) |
+| Dataset | Split | Publisher source | Data terms |
+|---|---|---|---|
+| Spider | dev | [Yale Spider](https://github.com/taoyds/spider) | Consult the current publisher terms |
+| Spider-Syn | test | [Spider-Syn](https://github.com/ygan/Spider-Syn) | MIT |
+| BIRD | dev | [BIRD](https://bird-bench.github.io/) | CC BY-SA 4.0 |
+| WikiTableQuestions | test | [Stanford WikiTableQuestions](https://github.com/ppasupat/WikiTableQuestions) | CC BY-SA 4.0 |
+| WikiSQL | test | [Salesforce WikiSQL](https://github.com/salesforce/WikiSQL) | BSD-3-Clause |
 
-Use the publisher's current instructions. In particular, Spider asks users to
-download the data again from its official site, and BIRD currently publishes
-its data under CC BY-SA 4.0. Do not assume Pandora's Apache-2.0 license applies
-to any benchmark.
+Always review the publisher's current terms before downloading or redistributing
+benchmark content. Pandora's Apache-2.0 license applies only to source code.
 
-## Expected layout
+## Setup
 
-Pandora accepts the root through `PANDORA_DATA_ROOT` or `--data-root`:
+```bash
+export PANDORA_DATA_ROOT=/path/to/pandora-data
+
+pandora-data prepare --dataset wikitq
+pandora-data prepare --dataset wikisql
+
+pandora-data prepare --dataset spider --source /path/to/official-spider
+pandora-data prepare --dataset spider-syn
+
+pandora-data prepare --dataset bird --source /path/to/official-bird-dev
+
+pandora-data verify --dataset all
+```
+
+`--source` accepts an extracted directory, `.zip`, or tar archive. For
+`--dataset all`, it may also point to a directory containing `spider/` and
+`bird/` subdirectories. Downloads use standard `HTTP_PROXY`, `HTTPS_PROXY`, and
+`NO_PROXY` settings and resume from the local cache when the server supports
+HTTP range requests.
+
+## Materialized layout
 
 ```text
 pandora-data/
 ├── spider/
 │   ├── spider.dev.json
-│   ├── dev_tables.json
+│   ├── spider.tables.dev.json
 │   └── dev_database/<db_id>/<db_id>.sqlite
 ├── spider-syn/
 │   └── spider-syn.test.json
 ├── bird/
 │   ├── bird.dev.json
+│   ├── bird.tables.dev.json
 │   └── dev_database/<db_id>/<db_id>.sqlite
 ├── wikitq/
-│   ├── wikitq.test.json
-│   └── csv/...
-├── wikisql/
-│   ├── wikisql.test.json
-│   └── csv/...
-├── grailqa/
-│   ├── grailqa.test.json
-│   ├── entity_link/grailqa.entity_link.test.json
-│   └── box/{box_schema.json,test/<qid>/*.csv}
-├── webqsp/
-│   ├── webqsp.test.json
-│   ├── entity_link/webqsp.entity_link.test.json
-│   └── box/{box_schema.json,test/<qid>/*.csv}
-└── cross_source/
-    └── cross_source.test.json
+│   └── wikitq.test.json
+└── wikisql/
+    └── wikisql.test.json
 ```
 
-The normalized `*.json` files shown above are adapter inputs produced from the
-publisher formats. They are not distributed in this release. KG BOXes are
-derived artifacts; build them with `scripts/build_kg_boxes.py` after obtaining
-an appropriately licensed Freebase source. Verified memory is built with
-`scripts/build_memory.py` and must remain under the ignored data root.
-
-Run `python scripts/audit_repository.py --mode reproducibility` to report which
-paper assets are still absent. Missing data in code-only mode is informational,
-not a code-health failure.
+Downloaded artifacts are pinned to the revision recorded in
+`pandora_data/manifests/benchmarks.json`. `pandora-data verify` checks the
+materialized layout before inference.

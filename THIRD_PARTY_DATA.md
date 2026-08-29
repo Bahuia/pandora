@@ -1,14 +1,20 @@
 # Third-party data notice
 
 The Apache-2.0 license in this repository applies to Pandora source code only.
-It does not grant rights to benchmark datasets, Freebase content, model weights,
-API outputs, generated experimental results, or derivative data products.
+Benchmark annotations, databases, and tables retain their publishers' licenses
+and attribution requirements.
 
-No third-party data is included in the code-preview release. Users are
-responsible for obtaining assets from the publishers listed in `DATASETS.md`,
-accepting their current terms, preserving required attribution, and determining
-whether generated memory or KG BOXes may be redistributed.
+The companion `bahuia/pandora-data` repository records provenance, source
+versions, transformations, checksums, and dataset-specific notices. Its
+processed artifacts are distributed under the applicable upstream terms:
 
-BIRD currently identifies its published data license as CC BY-SA 4.0. Other
-benchmarks have independent terms that may differ between code and data. Always
-consult the upstream source rather than relying on this summary.
+| Dataset | Terms applied to the processed artifact |
+|---|---|
+| Spider-Syn | MIT |
+| BIRD | CC BY-SA 4.0 |
+| WikiTableQuestions | CC BY-SA 4.0 |
+| WikiSQL | BSD-3-Clause |
+
+Spider publisher assets are obtained from the official source and transformed
+locally. Consult [DATASETS.md](DATASETS.md) for source links and preparation
+commands.

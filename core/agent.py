@@ -194,7 +194,11 @@ class PandoraAgent:
 
     def _initialize_memory_retriever(self) -> None:
         """Load verified examples without loading the embedding model eagerly."""
-        if not self.config.get("retrieval.enabled", True):
+        if (
+            not self.config.get("retrieval.enabled", True)
+            or self.retrieval_mode == "disabled"
+            or self.shot_k <= 0
+        ):
             return
         data_root = Path(self.config.get("paths.data_root", "./data"))
         memory_files = self.config.get("retrieval.memory_files", [

@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Audit the public code boundary separately from optional paper assets."""
+"""Audit the public repository boundary and prepared benchmark assets."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
+DATA = Path(os.environ.get("PANDORA_DATA_ROOT", ROOT / "data")).expanduser()
 
 REQUIRED_FILES = {
     "LICENSE",
@@ -24,6 +25,8 @@ REQUIRED_FILES = {
     "prompts/tasks/nl2sql/code_reasoning.txt",
     "prompts/tasks/tableqa/code_reasoning.txt",
     "prompts/tasks/kbqa/code_reasoning.txt",
+    "pandora_data/manifests/benchmarks.json",
+    "examples/run_spider.sh",
 }
 FORBIDDEN_ROOTS = {
     "data", "results", "bad_cases", "temp", "manuscript", "figure",
@@ -50,8 +53,6 @@ EVALUATION_SPLITS = {
     "bird": (DATA / "bird" / "bird.dev.json", 1534),
     "wikitq": (DATA / "wikitq" / "wikitq.test.json", 4344),
     "wikisql": (DATA / "wikisql" / "wikisql.test.json", 15878),
-    "grailqa": (DATA / "grailqa" / "grailqa.test.json", 6463),
-    "webqsp": (DATA / "webqsp" / "webqsp.test.json", 1616),
 }
 
 
@@ -126,34 +127,26 @@ def audit_assets() -> dict:
         if not complete:
             missing.append(f"{dataset} evaluation split: expected {expected}, found {actual}")
 
-    memory_files = list(DATA.glob("pandora.memory.*.json")) if DATA.exists() else []
-    if not memory_files:
-        missing.append("verified memory files are absent")
-    cross_source = DATA / "cross_source" / "cross_source.test.json"
-    if read_json_count(cross_source) != 23:
-        missing.append("paper cross-source manifest is absent or incomplete")
-    for dataset in ("grailqa", "webqsp"):
-        if not (DATA / dataset / "box" / "box_schema.json").exists():
-            missing.append(f"{dataset} KG BOX schemas are absent")
-
     return {"complete": not missing, "evaluation_splits": splits, "missing": missing}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["code-only", "reproducibility"], default="code-only")
+    parser.add_argument(
+        "--mode", choices=["repository", "benchmark-ready"], default="repository"
+    )
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
     code = audit_code()
     assets = audit_assets()
-    passed = code["ready"] and (args.mode == "code-only" or assets["complete"])
+    passed = code["ready"] and (args.mode == "repository" or assets["complete"])
     report = {
         "mode": args.mode,
         "passed": passed,
         "code_health": code,
-        "optional_paper_assets": assets,
+        "benchmark_assets": assets,
     }
     if args.json:
         print(json.dumps(report, indent=2))
@@ -161,8 +154,8 @@ def main() -> int:
         print(f"Pandora {args.mode} audit: {'PASS' if passed else 'FAIL'}")
         for blocker in code["blockers"]:
             print(f"CODE BLOCKER: {blocker}")
-        if not assets["complete"]:
-            print("Optional paper assets are not included:")
+        if args.mode == "benchmark-ready" and not assets["complete"]:
+            print("Benchmark data status:")
             for item in assets["missing"]:
                 print(f"- {item}")
     return 1 if args.strict and not passed else 0
