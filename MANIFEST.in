@@ -1,4 +1,5 @@
-include LICENSE README.md DATASETS.md THIRD_PARTY_DATA.md requirements*.txt
+include LICENSE README.md CITATION.cff DATASETS.md THIRD_PARTY_DATA.md requirements*.txt
+recursive-include assets *.png
 recursive-include configs *.yaml
 recursive-include prompts/tasks *.txt
 recursive-include scripts *.py

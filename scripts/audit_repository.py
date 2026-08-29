@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get("PANDORA_DATA_ROOT", ROOT / "data")).expanduser()
 
 REQUIRED_FILES = {
+    "CITATION.cff",
     "LICENSE",
     "README.md",
     "DATASETS.md",
@@ -27,6 +28,8 @@ REQUIRED_FILES = {
     "prompts/tasks/kbqa/code_reasoning.txt",
     "pandora_data/manifests/benchmarks.json",
     "examples/run_spider.sh",
+    "assets/pandora-overview.png",
+    "assets/box-representation.png",
 }
 FORBIDDEN_ROOTS = {
     "data", "results", "bad_cases", "temp", "manuscript", "figure",
