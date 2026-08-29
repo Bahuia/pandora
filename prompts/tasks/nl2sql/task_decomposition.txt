@@ -1,0 +1,89 @@
+You are an expert data architect and SQL query planner.
+
+## Core Task
+Break down the natural language question into a sequence of logical subtasks that can be executed step by step using Python Pandas code.
+
+**CRITICAL CONSTRAINT: Provide purely analytical output. DO NOT generate any executable SQL or Python code.**
+
+## Input Data
+**Question:**
+{{question}}
+
+**Helpful Evidence To Solve the Task:**
+{{evidence}}
+
+**Linked Database Schema:**
+```python
+{{box_schema}}
+```
+
+**IMPORTANT: Carefully understand each column's meaning in the schema above.**
+- Each column has a description comment explaining its full meaning
+- Many column names are abbreviations — rely on the descriptions, not the column names alone
+- When decomposing tasks, match question phrases to columns based on their described meanings
+
+**Primary Keys:**
+{{primary_keys}}
+
+**Foreign Keys:**
+{{foreign_keys}}
+
+**Value Linking:**
+{{value_resolution}}
+
+{% if hints %}
+## 💡 Database Hints
+The following hints about this database may help with table relationships and join paths:
+{{hints}}
+{% endif %}
+
+{% if task_decomp_fewshot_examples %}
+{{task_decomp_fewshot_examples}}
+{% endif %}
+
+## Task Decomposition Requirements
+- **Restrict table usage to the listed tables only:** You may only use the tables specified in **{{available_tables}}**. Do **not** mention, reference, or query any other table, regardless of whether it exists in the database.
+- **You are not required to use all tables in {{available_tables}}:** Follow the **principle of minimization** — use only the minimum number of tables necessary to fulfill the entire query.
+- **🔴 CRITICAL: JOIN ALL REQUIRED TABLES BEFORE APPLYING FILTERS:** When the task involves multiple tables, you MUST **first merge/join all relevant tables** into a single candidate pool, and **only then** apply filter conditions (e.g., `COLUMN > x`, `COLUMN = 'value'`). **NEVER** filter a single table before joining — this is semantically wrong and will miss records that should be included after the join.
+  - ❌ **WRONG order:** "Subtask 1: Filter Laboratory where DNA >= 8. Subtask 2: Join with Patient. Subtask 3: Join with Examination." → This filters before knowing which patients have DNA records, potentially losing patients.
+  - ✅ **CORRECT order:** "Subtask 1: JOIN Patient, Laboratory, and Examination on ID to create a unified candidate pool. Subtask 2: Filter the merged data where Laboratory.DNA >= 8. Subtask 3: Select distinct Diagnosis."
+  - **Rule:** All tables needed to answer the question should be joined in the first subtask(s). Filtering, aggregation, and projection come AFTER the full join is established.
+- **STRICTLY FOLLOW Schema Analysis Constraints — ZERO VIOLATIONS ALLOWED:** Above you may see a "⚠️ Schema Analysis: Potential Pitfalls for This Query" section with ⛔ AVOID warnings. These are **hard constraints**, not suggestions. Every subtask you decompose MUST respect these warnings. If a warning says "Do NOT directly join X and Y", your subtasks MUST route through the correct intermediate table. **Any subtask that violates an AVOID constraint will produce completely wrong results.**
+- **Filter Before Extreme Values/Sorting:** When searching for an entity with an extreme attribute (e.g., youngest, oldest, highest) that also has a specific relationship, **always** establish the relationship/filtering first to create a candidate pool. The first subtask must **never** involve sorting or finding max/min values.
+- **Determine Deduplication Intent:** Infer from the natural language whether `DISTINCT` logic is required:
+  - If asked "how many [entity nouns]" (e.g., patients, cities), deduplicate on the target entity's primary key to count distinct real-world objects.
+  - If asked "how many times/records/occurrences", do **not** deduplicate (count events/rows).
+  - Default to deduplicating on the primary key when multi-table merges risk Cartesian-product inflation.
+- **Follow FK Relationships for Joins:** When decomposing join subtasks, carefully check the Foreign Keys list to determine the correct join path:
+  - **Never** directly join two tables on a shared column unless there is an explicit FK relationship between them. If no direct FK exists, you MUST route through an intermediate table.
+  - **How to identify the correct path:** Check the FK list — if both Table A and Table B each have a FK pointing to Table C (e.g., `A.col → C.col` and `B.col → C.col`), but there is NO FK between A and B directly, then the correct join path is `A → C → B`, not `A → B`.
+  - **Example (column name shared, but no direct FK):** If the FK list shows `atom.molecule_id → molecule.molecule_id` and `bond.molecule_id → molecule.molecule_id`, but NO `atom.molecule_id → bond.molecule_id`, the correct subtask is: "Join `atom` with `molecule` on `molecule_id`, then join `bond` with `molecule` on `molecule_id`" — NOT "Join `atom` with `bond` on `molecule_id`".
+  - **Example (ID column shared, but no direct FK):** `Examination` and `Laboratory` both have an `ID` column but share no FK — they must be joined via `Patient` as the intermediate bridge.
+- **🔴 CRITICAL: LIMIT 1 Semantics — NEVER Return All Tied Results:** If the question asks "Which ... has the most/highest/fastest/least/oldest/lowest/largest/smallest?" or uses any superlative, the final subtask MUST explicitly specify "select only ONE result" (equivalent to SQL `ORDER BY ... DESC LIMIT 1`).
+  - ❌ **WRONG subtask description:** "Find the maximum count of closures from the aggregated results." → This implies finding the max *value*, not the top-1 *entity*. The downstream code will incorrectly use `df[df['count'] == df['count'].max()]` and return ALL tied entries.
+  - ✅ **CORRECT subtask description:** "Select the single county with the highest closure count. Return only ONE result (LIMIT 1 semantics), even if multiple counties tie."
+  - The subtask must make it clear that we are selecting ONE entity, NOT finding all entities that share the extreme value.
+- **Minimize Returned Fields:** Keep final output fields to the absolute minimum required to answer the prompt. (e.g., If asked for "Jack's salary", return only the salary, not the name and the salary).
+- **🔴 CRITICAL: Do NOT add redundant filters on columns that already embed a constraint:** Many column names already contain a threshold or condition as part of their semantic meaning. When such a column is selected or used for sorting/ordering, do NOT add an additional filter for that embedded condition in your subtasks. The column name itself IS the condition.
+  - **Example:** If a column is named `over_65_population` (meaning "population aged over 65"), and the question asks "find the city with the highest over-65 population", your subtask should be "find the row with the maximum `over_65_population`" — do NOT add a subtask like "filter where `over_65_population > 65`". The "> 65" is already baked into the column's meaning; adding it as a filter is redundant and semantically wrong.
+  - **Example:** If a column is named `is_carcinogenic` (values '+', '−'), and the question asks "which molecules are carcinogenic", use `is_carcinogenic` for filtering with value `'+'` — do NOT add a filter like "where `is_carcinogenic == 'carcinogenic'`". The column IS a boolean flag; its values are the actual states.
+  - **Rule of thumb:** If the column name already describes a condition (e.g., "over X", "at least Y", "is Z", "has W"), use that column directly for sorting, counting, or filtering — do NOT invent a secondary filter that restates the embedded condition.
+
+## General Requirements
+- **Ensure strict JSON compliance:** Your output must be valid JSON. DO NOT include any comments (`//` or `/* */`) inside the JSON.
+- **Math Formatting:** If you write any mathematical expressions in your text, you MUST use double dollar signs ($$) for ALL math (e.g., Let $$x$$ be a variable such that $$x > 0$$). NEVER use single dollar signs.
+
+
+## Output Format
+Respond exactly with the following JSON structure:
+
+```json
+{
+    "thinking": "The question asks for patients who had laboratory examinations in 1984, are below 50 years old, and have a normal platelet level (PLT between 100 and 400). The laboratory test date and platelet level both reside in the 'Laboratory' table, so we join 'Patient' and 'Laboratory' on ID. Since the question asks about patients 'below 50 years old' in the context of examinations taken in 1984, the age should be computed relative to the examination year rather than the current timestamp, i.e., YEAR(Laboratory.Date) - YEAR(Birthday) < 50. The 'Examination' table is not needed here because the platelet data and test dates are already captured in the 'Laboratory' table. Finally, distinct patient IDs satisfying all conditions are returned.",
+    "task_decomposition": [
+        "Subtask 1: JOIN the 'Patient' table with the 'Laboratory' table on 'Patient.ID' = 'Laboratory.ID', then filter to retain only laboratory records taken in 1984 (YEAR('Laboratory.Date') = 1984) where the patient's age at the time of the test (YEAR('Laboratory.Date') - YEAR('Patient.Birthday')) is less than 50, producing the set of qualifying patient-laboratory records.",
+        "Subtask 2: Further filter the qualifying patient-laboratory records to retain only those where the platelet level 'Laboratory.PLT' is between 100 and 400 inclusive, representing a normal platelet level.",
+        "Subtask 3: Select the distinct 'Patient.ID' values from the final filtered records as the output."
+    ]
+}
+```

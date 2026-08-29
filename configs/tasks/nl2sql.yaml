@@ -1,0 +1,29 @@
+# NL2SQL Task Configuration
+
+task:
+  name: "nl2sql"
+  description: "Natural Language to SQL query generation"
+
+# Supported datasets
+datasets:
+  - spider
+  - spider-syn
+  - bird
+
+# Dataset-specific settings
+spider:
+  db_path: "./data/spider/database"
+  schema_path: "./data/spider/dev_tables.json"
+  evidence_path: "./data/spider/{stage}.evidence.json"
+
+bird:
+  db_path: "./data/bird/database"
+  schema_path: "./data/bird/dev_tables.json"
+  evidence_path: "./data/bird/{stage}.evidence.json"
+
+# Evaluation settings
+evaluation:
+  metrics:
+    - em           # Exact Match
+    - f1           # F1 Score
+    - exec_acc     # Execution Accuracy

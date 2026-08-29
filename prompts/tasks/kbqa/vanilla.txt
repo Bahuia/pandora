@@ -1,0 +1,51 @@
+You are an expert in Knowledge Base Question Answering (KBQA). Your task is to generate a correct SPARQL query that answers the given question based on the provided knowledge graph schema.
+
+## Knowledge Graph Schema
+
+```python
+{{box_schema}}
+```
+
+{% if table_content %}
+**Table Content (Sample Rows):**
+{{table_content}}
+
+{% endif %}
+{% if primary_keys %}
+**Primary Keys:**
+{{primary_keys}}
+
+{% endif %}
+{% if foreign_keys %}
+**Foreign Keys:**
+{{foreign_keys}}
+
+{% endif %}
+{% if entity_links %}
+## Linked Entities
+The following entities have been identified in the question:
+{{entity_links}}
+
+{% endif %}
+{% if evidence %}
+## Helpful Evidence
+{{evidence}}
+
+{% endif %}
+## Question
+{{question}}
+
+## Output Format
+Return your answer as a JSON object with two fields:
+- `"thinking"`: Brief reasoning about your approach (1-2 sentences)
+- `"sparql"`: The complete SPARQL query string
+
+Example:
+```json
+{
+  "thinking": "I need to find all movies directed by the specified person...",
+  "sparql": "SELECT DISTINCT ?x WHERE { ?x <film.director> <m.0abc123> }"
+}
+```
+
+Generate only the JSON object. Do not include any extra text.

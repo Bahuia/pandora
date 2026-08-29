@@ -1,0 +1,41 @@
+You are an expert in Table Question Answering (TableQA). Your task is to analyze the given table and generate Python code to answer the question.
+
+## Table Schema
+
+```python
+{{box_schema}}
+```
+
+**🔴🔴🔴 CRITICAL: The table `table` is ALREADY pre-loaded as a pandas DataFrame. DO NOT create it yourself! 🔴🔴🔴**
+
+1. **NEVER write `table = pd.DataFrame({...})`** — the real table is already loaded
+2. **NEVER construct sample/mock data** — sample values are for REFERENCE ONLY
+3. **Simply use `table` directly** — it already contains all the data
+
+{% if table_content %}
+**Table Content (Sample Rows):**
+{{table_content}}
+
+{% endif %}
+{% if evidence %}
+## Helpful Evidence
+{{evidence}}
+
+{% endif %}
+## Question
+{{question}}
+
+## Output Format
+Return your answer as a JSON object with two fields:
+- `"thinking"`: Brief reasoning about your approach (1-2 sentences)
+- `"code"`: Python code that uses the pre-loaded `table` variable to compute the answer. The last line must assign the result to `answer`.
+
+Example:
+```json
+{
+  "thinking": "I need to filter rows where Country equals Brazil and count unique cities.",
+  "code": "result = table[table['Country'] == 'Brazil']['City'].nunique()\nanswer = [[result]]"
+}
+```
+
+Generate only the JSON object. Do not include any extra text.

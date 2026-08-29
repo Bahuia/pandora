@@ -1,0 +1,28 @@
+# KBQA Task Configuration
+
+task:
+  name: "kbqa"
+  description: "Knowledge Base Question Answering"
+
+# Supported datasets
+datasets:
+  - grailqa
+  - webqsp
+
+# Dataset-specific settings
+grailqa:
+  kg_path: "./data/grailqa/box"
+  entity_link_path: "./data/grailqa/entity_link/{stage}.entity_link.json"
+  schema_path: "./data/grailqa/box/box_schema.json"
+
+webqsp:
+  kg_path: "./data/webqsp/box"
+  entity_link_path: "./data/webqsp/entity_link/{stage}.entity_link.json"
+  schema_path: "./data/webqsp/box/box_schema.json"
+
+# Evaluation settings
+evaluation:
+  metrics:
+    - em           # Exact Match
+    - f1           # F1 Score
+    - hit_1        # Hit@1

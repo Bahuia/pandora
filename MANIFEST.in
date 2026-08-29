@@ -1,0 +1,4 @@
+include LICENSE README.md DATASETS.md THIRD_PARTY_DATA.md requirements*.txt
+recursive-include configs *.yaml
+recursive-include prompts/tasks *.txt
+recursive-include scripts *.py

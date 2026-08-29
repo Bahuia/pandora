@@ -1,0 +1,153 @@
+The following Python code failed to execute. Please fix it.
+
+{% if few_shot_examples %}{{ few_shot_examples }}{% endif %}
+
+## Question
+{{ question }}
+
+## Current Subtask
+{{ current_subtasks }}
+
+## Buggy Code
+```python
+{{ buggy_code }}
+```
+
+## Error Traceback
+```
+{{ traceback }}
+{{value_resolution}}
+```
+
+{% if execution_state %}
+## Execution State (from prior subtasks)
+{{ execution_state }}
+{% endif %}
+
+{% if entity_links %}
+## Topic Entity
+{% for entity_name, entity_id in entity_links.items() %}
+- "{{ entity_name }}"
+{% endfor %}
+{% endif %}
+
+## Table Schema
+```python
+{{ box_schema }}
+```
+
+**🔴🔴🔴 CRITICAL: The table `table` is ALREADY pre-loaded. DO NOT recreate it! 🔴🔴🔴**
+- **NEVER** write `table = pd.DataFrame({...})` — the real table is already loaded
+- **NEVER** construct sample/mock data — sample values are for REFERENCE ONLY
+
+{% if table_content %}
+## Table Content (Sample Rows)
+{{ table_content }}
+{% endif %}
+
+## Value Linking (USE THESE EXACT VALUES!)
+```json
+{{ value_linking }}
+```
+
+## 🔴 How to Fix This Error
+
+### KeyError: 'column_name'
+→ The column does NOT exist in this table! Check the schema for the correct column names.
+→ **Solution**: Find the table in the schema above, see what columns it actually has, and use the correct column name.
+
+### AttributeError: 'Series' object has no attribute 'itertuples'
+→ You called `.itertuples()` on a Series (single bracket `df['col']`), not a DataFrame.
+→ **Solution**: Use double brackets `df[['col']]` to keep it as a DataFrame.
+
+### TypeError: '>' not supported between 'str' and 'float'
+→ Table values are strings. Use `pd.to_numeric()` before comparison.
+→ **Solution**: `df['col'] = pd.to_numeric(df['col'], errors='coerce')`
+→ **Also check**: Are you using `>` or `<`? Always use `>=` or `<=`. Table thresholds are inclusive.
+
+### IndexError: list index out of range
+→ You tried to access `result[0][0]` but the result list is empty.
+→ **Solution**: Use `.isin()` for multi-step queries instead of indexing into results.
+
+### Empty DataFrame from filter
+→ The filter returned 0 rows because the filter value doesn't appear in the column you chose.
+→ **Check**: Verify the value matches exactly (case-sensitive, no extra spaces, correct data type).
+
+## Requirements
+- Fix the error and make the code runnable.
+- Keep the same format: `subtask_out = list(df[['col']].drop_duplicates().itertuples(index=False, name=None))`.
+- Do NOT define any DataFrames yourself.
+- 🔴 **SINGLE COLUMN ONLY:** Return ONLY the column the question asks for. If the question asks "What is the time?", return `[['Time']]`, NOT `[['Boat', 'Time', 'Crew', ...]]`.
+- 🔴 **>= and <= ONLY:** For numeric comparisons, always use `>=` or `<=`, NEVER `>` or `<`.
+- 🔴 **Only use Entity IDs from Entity Linking (ONCE each):** Do NOT invent or hardcode entity IDs that are not in the Entity Identifiers section. **Each entity ID can only appear ONCE in the code.** Using the same ID in multiple filters is WRONG.
+- 🔴 **Keep it simple:** Most GrailQA questions can be solved in exactly 2 subtasks.
+
+## 🔴 CRITICAL RULES — Violations Will Break the Pipeline
+
+### Rule 1: Use EXACT Column Names — No Guessing
+- **You MUST only use column names that appear in the schema.**
+- Do NOT invent, abbreviate, or guess column names.
+- ❌ **TRAP:** Question says "designer" → column might be `developer` or `designed_by`, not `designers`.
+- ✅ **ALWAYS** verify the exact column name in the schema first.
+
+### Rule 2: Return EXACTLY ONE Column
+- **Every subtask output MUST contain exactly ONE column.**
+- ❌ **FORBIDDEN:** `df[['Boat', 'Time', 'Crew']]` — too many columns
+- ✅ **CORRECT:** `df[['Time']]` — exactly one column
+- Assign final result to `subtask_out`.
+
+### Rule 3: Use >= and <= ONLY — NEVER > or <
+- **For all numeric thresholds, use inclusive comparisons: >= or <=**
+- ❌ **FORBIDDEN:** `df[df['height'] > 1.6]`
+- ❌ **FORBIDDEN:** `df[df['time'] < 0.01]`
+- ✅ **CORRECT:** `df[df['height'] >= 1.6]`
+- ✅ **CORRECT:** `df[df['time'] <= 0.01]`
+- **⚠️ Even if the question says "larger than" or "less than" — use >= or <=.**
+
+### Rule 4: Ranking Direction — "Lower" Means GREATER Number
+- In rankings/sports contexts, **"lower" or "worse" rank = larger number**.
+  - "Lower than 5th place" → `rank > 5` (e.g., 6th, 7th, 8th)
+  - "Worse than 5th place" → `rank > 5`
+  - "Better than 5th place" → `rank < 5` (e.g., 4th, 1st)
+  - "Top 5" → `rank <= 5`
+- **⚠️ Trap:** "Lower" in rank context means **Higher Number**, not lower.
+
+### Rule 5: Use ONLY Provided Topic entities — Use Each ONCE
+- **Each topic entity can appear ONLY ONCE in the entire code.**
+  - If a question mentions one entity (e.g., `James`), use it exactly once.
+  - Reusing the same topic entity in multiple filters is **WRONG**.
+- ❌ **FORBIDDEN:** `df[df['entity'] == 'Harry']` (`Harry` not in Entity Links)
+- ❌ **FORBIDDEN:** `df[df['entity_1'] == 'James'].merge(df[df['entity_2'] == 'James'])` (Topic entity `James` used twice)
+
+### Rule 6: Incremental Code Only
+- Output **only the additional code** needed to complete the current subtask.
+- Assume all prior DataFrame variables already exist in memory.
+- Do NOT repeat, rewrite, or modify earlier code unless explicitly required.
+- Do NOT include imports or setup code — assume Pandas is already imported.
+
+### Rule 7: Use Descriptive Variable Names
+- Avoid generic names (`result`, `subtask_out`, `output`, `df`, `temp`) that may conflict with existing variables.
+- Prefer scoped, descriptive names (e.g., `filtered_actors`, `final_budget`).
+- Ensure all added code integrates seamlessly with the existing pipeline.
+
+### Rule 8: NEVER Use `.itertuples()` for Intermediate Variables
+- `.itertuples()` returns a **one-time-use iterator** (zip object), not a DataFrame or list.
+- Intermediate variables MUST remain as DataFrames for indexing and reuse.
+- ❌ **WRONG:** `top_user = df.nlargest(1, 'count').itertuples(index=False)` — creates unusable iterator
+- ❌ **WRONG:** `ids = df.itertuples(); user = ids[0]` — raises `TypeError: 'zip' object is not subscriptable`
+- ✅ **CORRECT:** `top_user = df.nlargest(1, 'count')` — keep as DataFrame
+- Access values with: `top_user.iloc[0]['UserId']` or `top_user['UserId'].values[0]`
+
+### Rule 9: Final Result Format — Use `.itertuples()` ONLY for `subtask_out`
+- **Only convert to list of tuples when building the FINAL `subtask_out` variable.**
+- ✅ **CORRECT:**
+  ```python
+  subtask_out = list(final_df[['account_id']].itertuples(index=False, name=None))
+
+## Output Format
+```json
+{
+    "thinking": "What was wrong and how you fixed it.",
+    "revised_code": "The corrected Python code."
+}
+```

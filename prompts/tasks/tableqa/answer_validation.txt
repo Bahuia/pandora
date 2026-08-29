@@ -1,0 +1,12 @@
+You are an expert validator for Table Question Answering.
+
+Question: {{question}}
+Candidate Answer: {{answer}}
+
+Determine if the candidate answer logically and semantically matches the expected answer type for the question.
+- If the question asks for a name, title, or entity, but the answer is a bare number or boolean, it is INVALID.
+- If the question asks for a count or year, but the answer is a long descriptive string, it is INVALID.
+- If the answer seems plausible and matches the question type, it is VALID.
+
+Output ONLY a valid JSON object:
+{"valid": true, "reason": ""} or {"valid": false, "reason": "brief explanation"}

@@ -1,0 +1,52 @@
+The code executed successfully, but please review it for potential logical issues.
+
+## Question
+{{ question }}
+
+## Current Subtask
+{{ current_subtasks }}
+
+## Generated Code
+```python
+{{ current_subtask_code }}
+```
+
+{% if execution_state %}
+## Execution State
+{{ execution_state }}
+{% endif %}
+
+## Table Schema
+```python
+{{ box_schema }}
+```
+
+{% if table_content %}
+## Table Content (Sample Rows)
+{{ table_content }}
+{% endif %}
+
+## 🔴 Logic Review Checklist
+
+1. **🔴 SINGLE COLUMN ONLY:** The result must return ONLY ONE column — the specific column the question asks for. If the code returns multiple columns (e.g., `[['Boat', 'Time', 'Crew', ...]]`), this is WRONG. Fix it to return only the requested column (e.g., `[['5:19.35']]`).
+   - ❌ WRONG: `list(df[['Boat', 'Time', 'Crew', 'Nation', 'Date', 'Meet', 'Location']].itertuples(index=False, name=None))` — returns all columns!
+   - ✅ CORRECT: `list(df[['Time']].itertuples(index=False, name=None))` — returns only the Time column.
+2. **Column names**: Are you using the exact column names from the schema? Check for typos and case sensitivity.
+3. **Value format**: Are all filter values in the correct format? Table values are strings — use quotes around string values.
+4. **Numeric comparison**: If comparing numeric values, did you use `pd.to_numeric()` first? Also: did you use `>=`/`<=` (inclusive) instead of `>`/`<` (strict)?
+5. **COUNT vs nunique**: If the question asks "how many distinct", did you use `.nunique()` instead of `len()`?
+6. **"Same X as Y" exclusion**: If the question asks for entities with the same property as Y, did you exclude Y itself from results?
+7. **LIMIT 1 semantics**: If the question asks for "the most/highest/fastest", did you return exactly 1 result (not all tied entries)?
+8. **NaN handling**: Are you relying on columns that might be mostly NaN?
+9. **Output format**: Is `subtask_out` properly formatted as `list(df[['single_col']].drop_duplicates().itertuples(index=False, name=None))`?
+10. **Scalar values**: Did you accidentally use `list()` around a scalar method (like `.nunique()`, `.count()`)?
+    - ❌ `result = list(df['col'].nunique())`
+    - ✅ `result = [(df['col'].nunique(),)]`
+
+## Output Format
+```json
+{
+    "issues": ["List any logical issues found, or empty list if none"],
+    "revised_code": "Corrected code if issues were found, or the original code if no issues."
+}
+```

@@ -1,0 +1,220 @@
+You are an expert Python data engineer. The Python code generated for a database query has failed to execute. Your task is to diagnose the error from the traceback and provide corrected, runnable code.
+
+{% if few_shot_examples %}{{ few_shot_examples }}{% endif %}
+
+## Task
+The following Python code was generated to answer a database question, but it raised an error during execution. Analyze the error and provide the corrected code.
+
+## Question
+{{question}}
+
+**Primary Keys:**
+{{primary_keys}}
+
+**Foreign Keys:**
+{{foreign_keys}}
+
+## Helpful Evidence To Solve the Task
+{{evidence}}
+
+## Buggy Python Code (Failed Attempt)
+```python
+{{buggy_code}}
+```
+
+## Error Traceback
+```text
+{{traceback}}
+```
+
+## 🔴 Error Diagnosis Checklist — Go Through Each Item
+
+Before writing the fix, check which error type matches the traceback, then follow the corresponding checklist.
+
+---
+
+### [K] KeyError: Column name doesn't exist
+
+```
+KeyError: "['name_x'] not in index"
+KeyError: 'ParentId_x'
+KeyError: 'cds'
+KeyError: 'power_id'
+pandas.errors.MergeError: Passing 'suffixes' which cause duplicate columns {'Id_y'} is not allowed.
+```
+
+**Checklist:**
+- [ ] **[K-1]** Do you reference `_x` or `_y` suffixed columns? Verify which table each suffix comes from. Left table → `_x`, right table → `_y`.
+- [ ] **[K-2]** Did you merge the same table twice? Merging the same table twice is strictly prohibited! If this has happened, please delete the second merge.
+- [ ] **[K-3]** After `left_on='cds', right_on='CDSCode'` merge, the result keeps `cds` (left) but drops `CDSCode` (right). Don't reference the right-side column name.
+- [ ] **[K-4]** If you used `suffixes=('', '_owner')`, the left table's columns have NO suffix. `ParentId` stays as `ParentId`, NOT `ParentId_x`.
+- [ ] **[K-5]** Compare your column references against the Execution State output above — it shows the ACTUAL column names after prior operations.
+
+---
+
+### [T] TypeError: Type mismatch in comparison
+
+```
+TypeError: '<' not supported between instances of 'float' and 'str'
+TypeError: '<=' not supported between instances of 'str' and 'float'
+```
+
+**Checklist:**
+- [ ] **[T-1]** Does the error involve a date column (`dob`, `birthday`, `date`, `First Date`)? These columns often contain empty strings `''`. **Fix**: `pd.to_datetime(col, errors='coerce')` → filter with `.notna()`.
+- [ ] **[T-2]** Are you calling `.min()` / `.max()` / `.idxmin()` / `.idxmax()` on a column that may contain empty strings? **Must convert first**.
+- [ ] **[T-3]** Did you merge after converting a date column? Merge can introduce new empty values. **Re-convert after merge**.
+- [ ] **[T-4]** Does the column contain a mix of valid dates and `None`/`''`? Filter: `df[(df['col'].notna()) & (df['col'] != '')]`
+
+---
+
+### [V] ValueError: Data format parsing failure
+
+```
+ValueError: expected hh:mm:ss format before .
+ValueError: could not convert string to float: '18:56.516'
+```
+
+**Checklist:**
+- [ ] **[V-1]** Are you using `pd.to_timedelta()` on `M:SS.mmm` format (e.g., `'1:49.088'`)? **Don't use pd.to_timedelta** — it expects `HH:MM:SS`.
+- [ ] **[V-2]** Are you using `.astype(float)` on a `duration` or `time` column? Check if any values contain colons (`:`).
+- [ ] **[V-3]** Is there a `milliseconds` INTEGER column available? **ALWAYS use it** instead of parsing the text column.
+- [ ] **[V-4]** `pitStops.duration` has MIXED formats: `'23.227'` (98%) and `'18:56.516'` (2%). **Use `pitStops.milliseconds`**.
+- [ ] **[V-5]** `lapTimes.time` is `M:SS.mmm` format. **Use `lapTimes.milliseconds`**.
+- [ ] **[V-6]** `results.time` has two formats: `'1:34:50.616'` (race time) and `'+5.478'` (gap). **Use `results.milliseconds`**.
+
+---
+
+### [A] AttributeError: Wrong method on object type
+
+```
+AttributeError: 'Series' object has no attribute 'itertuples'
+```
+
+**Checklist:**
+- [ ] **[A-1]** Did you call `.min()` / `.max()` / `.sum()` / `.mean()` and then `.itertuples()`? These return **Series**, which has no `.itertuples()`.
+- [ ] **[A-2]** Are you calling `.itertuples()` on a scalar value? **Scalars can't use itertuples**.
+
+**Correct patterns:**
+```python
+# ❌ WRONG: .min() returns Series, no itertuples
+result = list(df[['CreaionDate']].min().itertuples(index=False, name=None))
+
+# ✅ CORRECT: use nsmallest to keep DataFrame
+result = list(df.nsmallest(1, 'CreaionDate')[['CreaionDate']].itertuples(index=False, name=None))
+```
+
+---
+
+### [S] SyntaxError: Parenthesis/bracket mismatch
+
+```
+SyntaxError: closing parenthesis ')' does not match opening parenthesis '['
+```
+
+**Checklist:**
+- [ ] **[S-1]** Are you using `.apply(..., axis=1)` inside `.loc[`? **Don't do this**. Create an auxiliary column first.
+- [ ] **[S-2]** Count your `[` vs `]` and `(` vs `)`. They must match.
+
+---
+
+### [N] String vs Numeric comparison (silent bug)
+
+**Checklist:**
+- [ ] **[N-1]** Are you comparing a TEXT column to a number using `>` / `<` / `<=` / `>=`? **Convert first**: `pd.to_numeric(col, errors='coerce')`
+- [ ] **[N-2]** Does the column contain special prefixes like `'<'` (e.g., `RF` column has `'<20.5'`)? **Strip prefix**: `df['RF'].str.lstrip('<')`
+- [ ] **[N-3]** Does the column contain symbolic values like `'-'`, `'+'`, `'TR'` (e.g., `U-PRO`)? These are **not numeric**. Use string comparison or `.isin()`.
+
+---
+
+### [C] CASE WHEN / IIF conditional aggregation
+
+**Checklist:**
+- [ ] **[C-1]** Express `CASE WHEN ... THEN 1 ELSE 0 END` or `IIF(...)`? Use `np.where()` or boolean `.sum()`.
+- [ ] **[C-2]** Percentage calculation: `SUM(CASE WHEN X THEN 1 ELSE 0 END) * 100 / COUNT(*)` → `(condition).sum() * 100 / len(df)`
+
+---
+
+### [O] OR condition translation
+
+**Checklist:**
+- [ ] **[O-1]** Express `OR`? Use `|` (not `or`) in Python, with parentheses around each condition.
+- [ ] **[O-2]** If both sides of OR test the same column, use `.isin()` instead.
+
+
+---
+
+### [D] DATE extraction and filtering
+
+**Checklist:**
+- [ ] **[D-1]** Want to use `STRFTIME('%Y', col)`? Extract year with `.dt.year` after `pd.to_datetime()`.
+- [ ] **[D-2]** Want to use `BETWEEN '1980' AND '1985'` on a year? Use `.between(1980, 1985)` on the year column.
+- [ ] **[D-3]** **Always** use `pd.to_datetime(col, errors='coerce')` before date operations, then filter `.notna()`.
+
+---
+
+### [G] GROUP BY + ORDER BY + LIMIT chain
+
+**Checklist:**
+- [ ] **[G-1]** `GROUP BY ... ORDER BY SUM(col) DESC LIMIT 1` → `.groupby(...).sum().reset_index().nlargest(1, 'col')`
+- [ ] **[G-2]** `ORDER BY ... ASC LIMIT 1` → `.nsmallest(1, 'col')`
+- [ ] **[G-3]** `ORDER BY ... DESC LIMIT 5` → `.nlargest(5, 'col')`
+
+---
+
+### [L] IS NULL / IS NOT NULL filtering
+
+**Checklist:**
+- [ ] **[L-1]** `IS NULL` → `.isna()`. `IS NOT NULL` → `.notna()`.
+- [ ] **[L-2]** If the column also contains empty strings `''`, **replace first**: `df['col'] = df['col'].replace('', pd.NA)`
+
+---
+
+### [P] LIKE pattern matching
+
+**Checklist:**
+- [ ] **[P-1]** `LIKE '%keyword%'` → `.str.contains('keyword', na=False)`
+- [ ] **[P-2]** `LIKE 'prefix%'` → `.str.startswith('prefix', na=False)`
+- [ ] **[P-3]** Case sensitivity: `.str.contains()` is case-sensitive by default. Add `case=False` if needed.
+
+---
+
+### [CD] COUNT DISTINCT
+
+**Checklist:**
+- [ ] **[CD-1]** `COUNT(DISTINCT col)` → `.nunique()`, NOT `.count()` or `len()`
+- [ ] **[CD-2]** After JOIN, counting entities → use `.nunique()`
+
+---
+
+## Final Requirements
+
+## Final Requirements
+
+### 1. Provide Complete Code
+- Output the **complete** corrected Python code, not just the fix
+- Include `import pandas as pd` at the top if needed
+- End with `result = [...]` assignment
+- 🔴 CRITICAL: Do NOT define or mock any DataFrames. All tables are **pre-loaded** by the executor.
+
+### 2. Correct the Root Cause
+- Diagnose from the traceback using the checklist above
+- Fix the specific issue, not just add error handling
+
+### 3. Return Only Requested Columns
+- Extra columns will cause answer mismatches
+
+### 4. Return Names, Not IDs
+- If the question asks "which team/race/circuit", return the name column, not the ID
+
+### 5. No .loc[] Allowed
+- Use boolean indexing instead
+
+## Output Format
+Respond strictly in valid JSON format:
+
+```json
+{
+    "thinking": "Which checklist items applied? What was the root cause and what did you change?",
+    "corrected_code": "The complete, corrected Python code"
+}
+```

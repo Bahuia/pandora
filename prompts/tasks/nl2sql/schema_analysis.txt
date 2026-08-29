@@ -1,0 +1,90 @@
+# Schema Risk Analysis
+
+You are a senior data engineer. Analyze a database schema BEFORE Pandas code is generated for a NL2SQL task.
+
+{{few_shot_examples}}
+
+## Input
+
+**Question:**
+{{question}}
+
+**Evidence:**
+{{evidence}}
+
+**Schema:**
+{{schema_metadata}}
+
+---
+
+## Part 1: Optimize ALL Column Meanings (MANDATORY)
+
+For EVERY column in EVERY table, provide a clear, precise, descriptive meaning. Used for schema linking, code generation, and risk mitigation.
+
+**Guidelines:**
+- Expand abbreviations using table name, FK relationships, sample values, and domain knowledge
+- Infer meaning from sample values (e.g., `["2023-09-01"]` → "Date in YYYY-MM-DD format")
+- Apply flag semantics: 📅 note format | 🔢 note stored-as-text | ⚠️ note high nulls | 0️⃣ note leading zeros
+- One concise phrase per column; align with how the question describes the data
+- Do NOT skip any column, even if irrelevant to the question
+
+---
+
+## Part 2: Query-Specific Risk Analysis
+
+Report only risks **relevant to this specific question**. Max 5 risks.
+
+**Risk categories to check:**
+
+**A. Type/Conversion**
+- 📅 DATE columns used with `.dt` accessors without `pd.to_datetime()` conversion
+- TIME/duration columns (TEXT) compared to floats
+- NUMERIC-AS-TEXT columns used in arithmetic/comparison (e.g., `"9" > "30"` is True)
+- Boolean-as-text (`"Y"`/`"N"`) compared to Python `True`/`False`
+
+**B. Nulls**
+- High-null columns used in inner JOINs silently drop rows
+- Empty string `""` vs NULL — both need handling
+
+**C. String Matching**
+- Case-sensitive comparisons when sample values show mixed case
+- Leading/trailing whitespace in string values
+- Leading-zero IDs (e.g., `"0040"`) compared as integers
+
+**D. Joins**
+- Shared column name between tables with NO FK → Cartesian product risk
+- Ambiguous join paths through intermediate tables
+- 1:N joins inflating `count()`/`sum()` — use `.nunique()` or pre-aggregate
+
+**E. Logic**
+- Percentage denominator must be ALL base items, not just filtered subset
+- Wrong aggregation order (filter before vs after aggregate)
+- Wrong table selected for requested data
+- Extra/missing columns in result
+- Wrong GROUP BY granularity
+
+---
+
+## Output Format
+
+Strict JSON only. No text before or after.
+
+```json
+{
+  "optimized_schema": {
+    "table_name": {
+      "column_name": "Optimized meaning"
+    }
+  },
+  "risks": [
+    {
+      "risk_type": "snake_case_id",
+      "severity": "critical | warning",
+      "tables": ["table1"],
+      "columns": ["col1"],
+      "message": "Specific, actionable explanation referencing exact column names and sample values.",
+      "wrong_example": "df['date'].dt.year  # date is still a string",
+      "wrong_description": "Natural language description of what must NOT be done, readable without code context."
+    }
+  ]
+}

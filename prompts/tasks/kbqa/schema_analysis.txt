@@ -1,0 +1,268 @@
+# Schema Risk Analysis Prompt
+
+{{few_shot_examples}}
+
+You are a senior data engineer and database schema expert. Your task is to analyze a database schema BEFORE Python Pandas code is generated for a NL2SQL (Natural Language to SQL) task. You will:
+
+1. **Optimize column meanings** — improve ALL column descriptions so they are clear, precise, and useful for downstream code generation.
+2. **Identify query-specific risks** — find potential pitfalls that could cause wrong results, runtime errors, or logic bugs when writing Pandas code for THIS specific question.
+
+---
+
+## Input Context
+
+### User Question
+{{question}}
+
+### Supporting Evidence
+{{evidence}}
+
+### Database Schema Metadata
+{{schema_metadata}}
+
+---
+
+## Part 1: Column Meaning Optimization (MANDATORY — ALL columns)
+
+The schema metadata includes column names, declared types, sample values, null ratios, and any existing comments. **You must provide an optimized, clear, and descriptive meaning for EVERY column in EVERY table.**
+
+These optimized meanings will be used downstream for:
+- Schema linking (matching natural language phrases to correct columns)
+- Code generation (writing correct Pandas expressions)
+- Risk mitigation (avoiding type mismatches, null errors, etc.)
+
+### Optimization Guidelines
+
+1. **Expand abbreviations and acronyms:**
+   Column names are often cryptic abbreviations. Use the table name, FK relationships, sample values, and domain knowledge to infer the full meaning.
+   - `NumGE1500` in `satscores` → "Number of students with total SAT score >= 1500"
+   - `A2` in `district` with values `"Litomerice", "Praha"` → "District name"
+   - `NumTstTakr` → "Number of students who took the test"
+   - `cds` → "County-District-School code (unique 14-digit identifier)"
+   - `AdmFName1` → "First name of the primary school administrator"
+   - `sctype` → "School type (e.g., 'Public', 'Charter', 'Private')"
+
+2. **Infer meaning from sample values:**
+   Even if no comment exists, look at the sample values to deduce what the column represents.
+   - Sample values: `["2023-09-01", "2023-09-02"]` → "Date (YYYY-MM-DD format)"
+   - Sample values: `["09:30:00", "14:15:30"]` → "Time of day (HH:MM:SS format)"
+   - Sample values: `["A", "B+", "C-"]` → "Academic grade letter"
+
+3. **Leverage column flags:**
+   Pay attention to the emoji flags in the metadata:
+   - 📅 DATE / 📅 DATETIME → This is a date/time column; the meaning should note the format.
+   - 🔢 NUMERIC-AS-TEXT → Stored as TEXT but contains numeric values; the meaning should clarify.
+   - ⚠️ HIGH-NULL → Column has >50% nulls; note this if it affects interpretation.
+   - 🔤 CASE-SENSITIVE → Case matters for matching.
+   - 0️⃣ LEADING-ZEROS → Values like "0040" must be treated as strings, not numbers.
+
+4. **Be concise but unambiguous:**
+   One short phrase or sentence per column. No rambling. The output will be injected into code generation prompts, so precision matters.
+
+5. **Align with the user's question:**
+   Think about how a user might describe this data in natural language. Optimize the meaning to help match phrases in the question to the correct column.
+   - If the question asks "average score", make sure the score column's meaning clearly says "test score" not just "score".
+   - If the question mentions "enrollment", make sure the enrollment column's meaning clarifies whether it's total enrollment, grade-specific, etc.
+
+6. **Do NOT skip any column:**
+   Every column in every table must have an optimized meaning. Even columns that seem irrelevant to the current question should be described (you can use a brief generic description).
+
+---
+
+## Part 2: Risk Analysis (Query-Specific)
+
+After optimizing column meanings, analyze the schema for risks that are **specifically relevant to the given question**. Do NOT list generic risks that don't apply.
+
+### Risk Categories to Consider
+
+#### A. Data Type & Conversion Risks
+
+1. **Date/Time Format Conversion**
+   - If the question involves date filtering, grouping by date, or date arithmetic, check whether date columns need `pd.to_datetime()`.
+   - Columns flagged 📅 DATE or 📅 DATETIME are stored as strings and MUST be converted before using `.dt` accessors.
+   - Wrong: `df[df['date'].dt.year == 1997]` (fails if 'date' is string '1997-03-15')
+   - Wrong: `df.groupby('date_column')['value'].sum()` (groups by string, not by month/year)
+
+2. **Time Duration Columns Stored as Strings**
+   - Columns like `fastestLapTime`, `time`, `duration` are TEXT. Do NOT use `pd.to_numeric()` or compare to floats.
+   - Wrong: `df[df['fastestLapTime'] < 100.0]` (TypeError: comparing string to float)
+
+3. **Numeric-as-Text Columns**
+   - Declared as TEXT/VARCHAR but contains numeric-looking values (e.g., "123", "45.6").
+   - Direct numeric comparisons or arithmetic will fail.
+   - Wrong: `df[df['age'] > 30]` (string comparison: "9" > "30" is True!)
+
+4. **Boolean-as-Text Columns**
+   - Columns like `is_active`, `flag` stored as "Y"/"N", "1"/"0", "True"/"False" strings.
+   - Wrong: `df[df['is_active'] == True]` (should be `== "Y"` or `== "1"`)
+
+#### B. Null & Empty Data Risks
+
+5. **High Null Columns**
+   - Columns with >50% null ratio may produce empty results when used in JOINs or filters.
+   - If the question asks for "all X", filtering on a high-null column may silently drop most rows.
+   - Wrong: `merged = df1.merge(df2, on='optional_col')` (drops rows where optional_col is null)
+
+6. **Empty String vs Null**
+   - Some columns may use empty strings `""` instead of NULL. Both need handling.
+   - Wrong: `df[df['name'].notna()]` (misses rows where name is `""`)
+
+#### C. String Matching Risks
+
+7. **Case Sensitivity**
+   - String comparisons in Pandas are case-sensitive by default.
+   - If sample values show mixed case (`"New York"` vs `"new york"`), direct equality checks may fail.
+   - Wrong: `df[df['city'] == 'new york']` (sample value is `"New York"`)
+
+8. **Leading/Trailing Whitespace**
+   - Some string columns may have invisible whitespace in values.
+   - Wrong: `df[df['code'] == 'ABC']` (actual value is `"ABC "` with trailing space)
+
+9. **Leading Zeros in String Columns**
+   - ID codes like `"0040"`, `"001"` must be matched exactly as stored.
+   - Wrong: `df[df['code'] == '40']` (actual value is `"0040"`)
+
+#### D. Join & Relationship Risks
+
+10. **CVT / Blank Node Columns (CRITICAL for KBQA)**
+    If a column is flagged 🔗 CVT-BLANK-NODE in the metadata, it means that column contains Freebase IDs
+    with NO corresponding entity name — these are **blank nodes** (compound value types) that serve as
+    **intermediate bridging nodes** to connect multi-ary (N-ary) relations.
+
+    **Rule: You CANNOT directly filter or return CVT column values.**
+    You MUST merge (join) through the CVT table to reach the actual entity.
+
+    Wrong example (direct CVT usage):
+    ```python
+    # WRONG: trying to filter on spouse_s directly — these are meaningless blank node IDs
+    result = person[person['spouse_s'] == 'some_id']['spouse'].tolist()
+    ```
+
+    Correct example (merge through CVT):
+    ```python
+    # CORRECT: merge person with marriage through the blank node column
+    merged = person.merge(marriage, left_on='spouse_s', right_on='marriage')
+    result = merged[merged['person'] == 'Julia Roberts']['spouse'].unique().tolist()
+    ```
+
+    In the example above, `person.spouse_s` contains blank node IDs. These IDs have no semantic meaning
+    by themselves — you must join with the `marriage` table (where the `marriage` column contains the same IDs)
+    to reach the actual `spouse` value. Always look for the CVT annotation in the metadata and follow the
+    suggested merge path.
+
+11. **Shared Column Names Without Foreign Key (Cartesian Product Risk)**
+    - Two tables share a column name (e.g., both have `category_id`) but NO FK relationship exists between them.
+    - Merging on that column creates a Cartesian product, inflating results.
+    - Wrong: `table_a.merge(table_b, on='category_id')` (NOT a FK between A and B!)
+
+12. **Ambiguous Join Paths**
+    - Multiple ways to connect two tables through intermediate tables.
+    - Use the correct FK path. Check the FK list in the metadata.
+    - Wrong: Taking a shortcut path that skips an intermediate table.
+
+13. **1:N Join Causing Count Inflation**
+    - When joining a 1:N relationship, rows from the "1" side are duplicated.
+    - Subsequent `count()` or `sum()` will be inflated.
+    - Solution: Use `.nunique()` on the primary key, or aggregate before joining.
+    - Wrong: `merged['student_id'].count()` after joining students→courses (1 student has N courses)
+
+14. **Missing FK Between Related Tables**
+    - The FK list shows no relationship, but the tables are logically related by column naming convention.
+    - May require a manual join on inferred columns.
+
+#### E. Computation & Logic Risks
+
+15. **Percentage/Denominator Logic**
+    - When computing percentages, the denominator must count ALL items meeting the base condition, NOT just the filtered subset.
+    - Wrong: `filtered_count / len(filtered_df)` (should be `filtered_count / len(all_df)`)
+    - Example: "What percentage of schools in LA have SAT > 1500?" → denominator = all schools in LA, not just schools with SAT > 1500.
+
+16. **Aggregation Before vs After Filtering**
+    - Order matters: aggregate first, then filter vs filter first, then aggregate.
+    - Wrong: Filtering rows before aggregation when the question requires aggregation of the full set.
+
+17. **Wrong Table for Requested Data**
+    - The question asks for specific data; ensure it comes from the correct table.
+    - Example: If the question asks for "school names" but there's a `schools` table and a `districts` table, make sure school names come from `schools`, not `districts`.
+
+18. **Result Column Count/Type Mismatch**
+    - Only return columns explicitly requested by the question.
+    - If the question asks for "name and score", do NOT return "name, score, and school_id".
+    - Ensure computed columns have the right type (int vs float, string vs numeric).
+
+19. **GROUP BY Key Selection**
+    - When grouping, ensure the GROUP BY key matches the level of granularity requested.
+    - Wrong: Grouping by `school_id` when the question asks for results by `district`.
+
+---
+
+## Response Format
+
+Respond in **strict JSON format** with the following structure:
+
+```json
+{
+    "optimized_schema": {
+        "table_name": {
+            "column_name": "Optimized, clear, descriptive meaning for this column",
+            "another_column": "Another optimized meaning"
+        },
+        "another_table": {
+            "col1": "Optimized meaning for col1",
+            "col2": "Optimized meaning for col2"
+        }
+    },
+    "risks": [
+        {
+            "risk_type": "short_snake_case_identifier",
+            "severity": "critical",
+            "tables": ["table1", "table2"],
+            "columns": ["col1", "col2"],
+            "message": "Specific, actionable hint. Reference exact column names and sample values from the metadata. Explain what the issue is and why it matters for THIS question.",
+            "wrong_example": "A concrete wrong code pattern as a short Python/Pandas snippet, or empty string if not applicable.",
+            "wrong_description": "Natural language description of what must NOT be done. Must be understandable without reading code — this is used by downstream task decomposition."
+        }
+    ]
+}
+```
+
+### Field Specifications
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `optimized_schema` | object | ✅ Yes | Nested dict: table → column → optimized meaning. Must cover ALL columns. |
+| `risks` | array | ✅ Yes | List of risk objects. Empty array `[]` if no risks found. |
+| `risk_type` | string | ✅ Yes | Short snake_case identifier, e.g., `date_conversion`, `null_inflation`, `case_mismatch`. |
+| `severity` | string | ✅ Yes | Must be `"critical"` or `"warning"`. Critical = will cause wrong results or runtime errors. Warning = may cause issues in edge cases. |
+| `tables` | array | ✅ Yes | Table names involved in this risk. |
+| `columns` | array | ✅ Yes | Column names involved in this risk. |
+| `message` | string | ✅ Yes | Detailed explanation of the risk. Reference specific column names and sample values. |
+| `wrong_example` | string | ✅ Yes | Concrete wrong code pattern. Empty string `""` if no code example applies. |
+| `wrong_description` | string | ✅ Yes | Natural language description of the pitfall. Must be clear without code context. |
+
+---
+
+## Rules
+
+1. **Optimize ALL columns in ALL tables.** Do not skip any table or column. Every column must have an optimized meaning.
+2. **Be specific to THIS query.** Only report risks that are actually relevant to the given question and schema. Do not list generic risks.
+3. **Use actual sample values.** Reference actual sample values from the metadata to make hints concrete and actionable.
+4. **Only show WRONG examples.** Do NOT provide "correct" code patterns — only show what NOT to do.
+5. **Always include `wrong_description`.** This must be understandable without reading code, as it's used by downstream task decomposition.
+6. **Limit to 5 risks maximum.** Report only the most important and likely risks.
+7. **If no risks found:** Return `"risks": []`. Do not invent or fabricate risks.
+8. **Strict JSON only.** Do NOT include any text before or after the JSON object. No markdown wrapping (other than the JSON code block itself).
+9. **Be concise in messages.** Risk messages should be specific and actionable, not verbose essays.
+10. **Cross-reference tables correctly.** When a risk involves multiple tables (e.g., join risks), list all affected tables and explain the relationship.
+
+---
+
+## Quality Checklist (Self-Verify Before Responding)
+
+- [ ] Have I optimized the meaning for EVERY column in EVERY table?
+- [ ] Are the optimized meanings clear, unambiguous, and useful for code generation?
+- [ ] Are all reported risks specific to THIS question, not generic?
+- [ ] Does each risk include a concrete `wrong_description`?
+- [ ] Have I identified any CVT/blank node columns and explained the correct merge path?
+- [ ] Have I limited risks to 5 or fewer?
+- [ ] Is the output valid JSON with no trailing text?

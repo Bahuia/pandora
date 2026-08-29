@@ -1,0 +1,108 @@
+The following Python code failed to execute. Please fix it.
+
+{% if few_shot_examples %}{{ few_shot_examples }}{% endif %}
+
+## Question
+{{ question }}
+
+## Current Subtask
+{{ current_subtasks }}
+
+## Buggy Code
+```python
+{{ buggy_code }}
+```
+
+## Error Traceback
+```
+{{ traceback }}
+{{value_resolution}}
+```
+
+{% if execution_state %}
+## Execution State (from prior subtasks)
+{{ execution_state }}
+{% endif %}
+
+## Table Schema
+```python
+{{ box_schema }}
+```
+
+**🔴🔴🔴 CRITICAL: The table `table` is ALREADY pre-loaded. DO NOT recreate it! 🔴🔴🔴**
+- **NEVER** write `table = pd.DataFrame({...})` — the real table is already loaded
+- **NEVER** construct sample/mock data — sample values are for REFERENCE ONLY
+
+{% if table_content %}
+## Table Content (Sample Rows)
+{{ table_content }}
+{% endif %}
+
+## Value Linking (USE THESE EXACT VALUES!)
+```json
+{{ value_linking }}
+```
+
+## 🔴 How to Fix This Error
+
+### KeyError: 'column_name'
+→ The column does NOT exist in this table! Check the schema for the correct column names.
+→ **Solution**: Find the table in the schema above, see what columns it actually has, and use the correct column name.
+→ **Likely Cause (Implicit Subject):** You assumed there is a column for the person/entity in the question (e.g., "Name"), but this table likely ONLY contains records for that person.
+  - ❌ `df[df['Name'] == 'Olga']['Year'].count()` (If 'Name' column is missing)
+  - ✅ `df['Year'].count()` (Just count the rows/years directly)
+
+### AttributeError: 'Series' object has no attribute 'itertuples'
+→ You called `.itertuples()` on a Series (single bracket `df['col']`), not a DataFrame.
+→ **Solution**: Use double brackets `df[['col']]` to keep it as a DataFrame.
+
+### TypeError: '>' not supported between 'str' and 'float'
+→ Table values are strings. Use `pd.to_numeric()` before comparison.
+→ **Solution**:
+  1. **Remove commas first!** (e.g. "85,153" → "85153").
+  2. `df['col'] = df['col'].str.replace(',', '').astype(float)`
+→ **Also check**: Are you using `>` or `<`? Always use `>=` or `<=`. Table thresholds are inclusive.
+
+### ⚠️ Output Format Check
+→ **Return Original Values:** If you converted a column (e.g., Date to Datetime) for sorting, ensure you return the **original string column** from the table, NOT the converted Timestamp/object.
+
+### IndexError: list index out of range
+→ You tried to access `result[0][0]` but the result list is empty.
+→ **Solution**: Use `.isin()` for multi-step queries instead of indexing into results.
+
+### Empty DataFrame from filter
+→ The filter returned 0 rows because the filter value doesn't appear in the column you chose.
+→ **Check**: Verify the value matches exactly (case-sensitive, no extra spaces, correct data type).
+→ **Fix (Robust Matching):** If filtering by Title/Name (e.g., "Petra-Gate"), exact match might fail due to quotes (e.g., cell is `"Petra-Gate"`).
+  - ❌ `df[df['Title'] == 'Petra-Gate']`
+  - ✅ `df[df['Title'].str.contains('Petra-Gate', case=False, na=False)]`
+
+### ⚠️ Logic Check: "How much/many" vs Value
+→ **Check Intent:** If the question asks "How much/many <Column>...", it usually means **COUNT**, not selecting the column value.
+  - If you are returning the value (e.g., "1856") for "How much First elected...", you are likely **WRONG**.
+  - **Fix:** Return the row count: `subtask_out = [(len(df),)]`
+
+### ⚠️ Logic Check: "Nth Row" Interpretation
+→ **Check Meaning:** If the question mentions "second row" or "third place", it usually refers to a value in a **Rank** or **Position** column.
+  - ❌ `df.iloc[1]` (Physical index)
+  - ✅ `df[df['Position'].str.contains('Second', case=False, na=False)]` (Value match)
+
+### TypeError: 'int' object is not iterable
+→ **Cause**: You wrapped a scalar value in `list()`. Methods like `.nunique()`, `.count()`, `.sum()` return a single number, not a list.
+→ **Fix**: Remove `list()`. Wrap manually if needed.
+  - ❌ `result = list(df['col'].nunique())`
+  - ✅ `result = [(df['col'].nunique(),)]`
+
+## Requirements
+- Fix the error and make the code runnable.
+- Keep the same format: `subtask_out = list(df[['col']].drop_duplicates().itertuples(index=False, name=None))`.
+- Do NOT define any DataFrames yourself.
+- 🔴 **SINGLE COLUMN ONLY:** Return ONLY the column the question asks for. If the question asks "What is the time?", return `[['Time']]`, NOT `[['Boat', 'Time', 'Crew', ...]]`.
+
+## Output Format
+```json
+{
+    "thinking": "What was wrong and how you fixed it.",
+    "revised_code": "The corrected Python code."
+}
+```

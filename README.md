@@ -1,73 +1,122 @@
 # Pandora
 
-**Leveraging Code-driven Knowledge Transfer for Unified Structured Knowledge Reasoning**
+Official code preview for **Pandora: Unified Structured Knowledge Reasoning
+with Executable Pandas BOXes**.
 
-This repository accompanies a manuscript prepared for **IEEE Transactions on Knowledge and Data Engineering (TKDE)**. It will host the official implementation, experiment configurations, and reproducibility resources for Pandora.
+Pandora maps relational databases, tables, and query-local knowledge graph
+subgraphs into a shared DataFrame representation called BOX. The implementation
+preserves the paper's box-aware linking, step-wise decomposition, iterative code
+solving with execution feedback, and final code merging pipeline.
 
-## Overview
+> **Release status:** `v0.1.0-code-preview` contains source code, task templates,
+> configuration, preprocessing entry points, and offline tests. It intentionally
+> contains no benchmark samples, generated memory, few-shot data, KG BOXes,
+> experiment results, figures, or manuscript/review files. This release is not
+> yet a complete reproduction package for the paper's reported numbers.
 
-Pandora studies how executable code can serve as a unified medium for transferring reasoning knowledge across structured knowledge tasks. The project aims to provide a consistent code-driven pipeline for training, inference, and evaluation while preserving the structure and execution semantics of the underlying reasoning process.
+## Supported tasks
 
-The complete method description and experimental protocol will be synchronized with the paper and released here as the project becomes publicly available.
+| Task | Benchmarks |
+|---|---|
+| Text-to-SQL | Spider, Spider-Syn, BIRD |
+| Table QA | WikiTableQuestions, WikiSQL |
+| Knowledge-base QA | GrailQA, WebQSP |
+| Heterogeneous reasoning | Manifest-driven cross-source evaluation |
 
-## Highlights
+## Installation
 
-- Code-driven knowledge transfer for structured reasoning.
-- A unified formulation across heterogeneous structured knowledge settings.
-- Reproducible training, inference, and evaluation workflows.
-- Configuration-driven experiments with documented datasets, checkpoints, and metrics.
+Python 3.9, 3.10, and 3.11 are tested.
 
-## Release Status
-
-The repository is being prepared for public release.
-
-- [ ] Paper or preprint
-- [ ] Environment and dependency specification
-- [ ] Data preprocessing pipeline
-- [ ] Training code
-- [ ] Inference code
-- [ ] Evaluation scripts
-- [ ] Experiment configurations
-- [ ] Model checkpoints and logs
-- [ ] Reproduction guide
-
-## Planned Repository Structure
-
-```text
-pandora/
-├── configs/        # Experiment and model configurations
-├── data/           # Data preparation utilities and documentation
-├── pandora/        # Core implementation
-├── scripts/        # Training, inference, and evaluation entry points
-├── tests/          # Unit and integration tests
-└── README.md
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+pandora --help
 ```
 
-The layout may change as the implementation is finalized.
+Set the API key for the selected official provider:
 
-## Getting Started
+```bash
+export OPENAI_API_KEY="..."
+export DEEPSEEK_API_KEY="..."
+export DASHSCOPE_API_KEY="..."
+```
 
-Installation instructions and runnable examples will be added with the first code release. The release will pin dependency versions and document the required hardware, datasets, random seeds, and evaluation commands.
+No third-party endpoint is configured. For an explicitly chosen
+OpenAI-compatible endpoint, pass `--base-url`.
 
-## Reproducibility
+## Data setup
 
-For every reported experiment, we plan to provide:
+Obtain each benchmark from its publisher and arrange it under one untracked
+data root. Exact source links, licensing notes, and the expected layout are in
+[DATASETS.md](DATASETS.md). Pandora does not download or redistribute the data.
 
-- the exact code revision and configuration;
-- dataset versions, preprocessing steps, and split definitions;
-- model and checkpoint identifiers;
-- random seeds and hardware information;
-- evaluation commands and metric definitions;
-- aggregate results and relevant run artifacts.
+```bash
+export PANDORA_DATA_ROOT=/path/to/pandora-data
 
-## Citation
+pandora --task nl2sql --dataset spider --stage dev \
+  --model gpt-4o-mini --num-samples 5
+```
 
-Citation information will be added when the paper or preprint becomes available.
+The equivalent explicit options are `--data-root` and `--config-dir`. Missing
+assets fail with a message pointing to the data guide.
 
-## License
+## Method controls
 
-A license will be added with the first code release. Until then, no license is granted for reuse or redistribution.
+Paper defaults are temperature 0, top-K 10, and at most three execution-repair
+rounds. The paper ablations are exposed directly:
 
-## Contact
+```bash
+pandora ... --ablation no_knowledge_transfer
+pandora ... --ablation no_decomposition
+pandora ... --ablation no_execution_feedback
+pandora ... --ablation no_code_merge
+```
 
-For questions or release notifications, please use the GitHub issue tracker.
+`no_knowledge_transfer` uses same-dataset verified memory. Use
+`--retrieval-mode disabled` for a strict zero-memory diagnostic.
+
+Verified memory and KG BOXes can be constructed after obtaining the required
+source assets:
+
+```bash
+python scripts/build_memory.py --help
+python scripts/build_kg_boxes.py --help
+python scripts/preprocess_schema_offline.py --help
+```
+
+## Repository layout
+
+```text
+configs/        packaged runtime and task configuration
+core/           Pandora agents, schema analysis, voting, memory construction
+datasets/       benchmark and cross-source adapters
+models/         official OpenAI, DeepSeek, and Qwen clients
+prompts/tasks/  packaged task templates
+scripts/        preprocessing and repository-audit entry points
+tests/          synthetic offline unit tests and optional integration tests
+utils/          execution, retrieval, schema, and KG BOX utilities
+run.py          unified CLI implementation
+```
+
+## Verification
+
+```bash
+python -m pytest -m "not integration"
+python -m compileall -q core datasets models prompts utils scripts run.py
+python -m build
+python scripts/audit_repository.py --mode code-only --strict
+```
+
+Generated code is AST-validated and run in an isolated subprocess with
+configurable time, CPU, and memory limits. This research sandbox is not a
+production security boundary.
+
+## License and contributions
+
+The Pandora source code in this repository is licensed under Apache-2.0. Data
+and other third-party assets retain their own terms and are not covered by that
+license; see [THIRD_PARTY_DATA.md](THIRD_PARTY_DATA.md). Contributions are
+described in [CONTRIBUTING.md](CONTRIBUTING.md), and vulnerabilities should be
+reported according to [SECURITY.md](SECURITY.md).

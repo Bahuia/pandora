@@ -1,0 +1,104 @@
+The code executed successfully, but please review it for potential logical issues.
+
+## Question
+{{ question }}
+
+## Current Subtask
+{{ current_subtasks }}
+
+## Generated Code
+```python
+{{ current_subtask_code }}
+```
+
+{% if execution_state %}
+## Execution State
+{{ execution_state }}
+{% endif %}
+
+## Table Schema
+```python
+{{ box_schema }}
+```
+
+{% if table_content %}
+## Table Content (Sample Rows)
+{{ table_content }}
+{% endif %}
+
+{% if primary_keys %}
+**Primary Keys:**
+{{ primary_keys }}
+{% endif %}
+
+{% if foreign_keys %}
+## Foreign Keys
+{{ foreign_keys }}
+{% endif %}
+
+{% if entity_links %}
+**Topic Entity**
+{% for entity_name, entity_id in entity_links.items() %}
+- "{{ entity_name }}"
+{% endfor %}
+{% endif %}
+
+{% if potential_linked_schema %}
+## Potential Linked Schema
+```json
+{{ potential_linked_schema }}
+```
+{% endif %}
+
+## 🔴 Logic Review Checklist
+
+1. **🔴🔴🔴 SINGLE COLUMN ONLY — COUNT THE COLUMNS:** The result must return EXACTLY ONE column — the specific column the question asks for.
+   - Count how many columns are in the final DataFrame passed to `.itertuples()`. If it's more than 1, this is WRONG.
+   - ❌ WRONG: `df[['Boat', 'Time', 'Crew', 'Nation', 'Date']].itertuples()` — 5 columns!
+   - ✅ CORRECT: `df[['Time']].itertuples()` — 1 column: Time.
+   - **If the code returns multiple columns, you MUST revise it to return only the one column the question asks for.**
+
+2. **🔴>= and <= ONLY — NEVER > or <:** For numeric comparisons, the code MUST use `>=` or `<=`, NOT `>` or `<`.
+   - ❌ WRONG: `df[df['height'] > 1.6]`
+   - ✅ CORRECT: `df[df['height'] >= 1.6]`
+   - **If the code uses `>` or `<`, you MUST revise it to use `>=` or `<=`.**
+
+3. **Column names**: Are you using the exact column names from the schema? Check for typos and case sensitivity.
+
+4. **Value format**: Are all filter values in the correct format? Table values are strings — use quotes around string values.
+
+5. **Numeric comparison**: If comparing numeric values, did you use `pd.to_numeric()` first? Also: did you use `>=`/`<=` (inclusive) instead of `>`/`<` (strict)?
+
+6. **Entity IDs — used ONCE each**: Does the code ONLY use entity IDs from the Entity Identifiers section? **Each entity ID should appear EXACTLY ONCE in the code.** If the same ID appears in multiple places (e.g., two different filter conditions), this is WRONG — remove the duplicate usage.
+
+7. **COUNT vs nunique**: If the question asks "how many distinct", did you use `.nunique()` instead of `len()`?
+
+8. **"Same X as Y" exclusion**: If the question asks for entities with the same property as Y, did you exclude Y itself from results?
+
+9. **LIMIT 1 semantics**: If the question asks for "the most/highest/fastest", did you return exactly 1 result (not all tied entries)?
+
+10. **NaN handling**: Are you relying on columns that might be mostly NaN?
+
+11. **Output format**: Is `subtask_out` properly formatted as `list(df[['single_col']].drop_duplicates().itertuples(index=False, name=None))`?
+
+12. **Task decomposition**: Can this be simplified to 2 subtasks? Avoid over-decomposing into 3+ steps.
+
+{% if needs_distinct == "True" %}
+**Note**: The question implies DISTINCT results. Make sure to use `.drop_duplicates()`.
+{% endif %}
+
+{% if needs_order == "True" %}
+**Note**: The question implies ordering (contains words like "most", "least", "tallest", "largest"). Make sure sort direction is correct.
+{% endif %}
+
+{% if needs_limit == "True" %}
+**Note**: The question asks for a limited result (contains words like "top 1", "the most"). Make sure to use `.head(1)` or similar.
+{% endif %}
+
+## Output Format
+```json
+{
+    "issues": ["List any logical issues found, or empty list if none"],
+    "revised_code": "Corrected code if issues were found, or the original code if no issues."
+}
+```
