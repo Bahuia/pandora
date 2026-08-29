@@ -2,3 +2,5 @@ include LICENSE README.md DATASETS.md THIRD_PARTY_DATA.md requirements*.txt
 recursive-include configs *.yaml
 recursive-include prompts/tasks *.txt
 recursive-include scripts *.py
+recursive-include pandora_data/manifests *.json
+recursive-include examples *.sh

@@ -27,7 +27,14 @@ class SpiderDataset(BaseDataset):
         super().__init__(name="spider", data_root=data_root)
         self.logger = setup_logger("pandora.dataset.spider")
         self.db_path = Path(data_root) / "spider" / "dev_database"
-        self.schema_path = Path(data_root) / "spider" / "dev_tables.json"
+        schema_candidates = [
+            Path(data_root) / "spider" / "spider.tables.dev.json",
+            Path(data_root) / "spider" / "dev_tables.json",
+            Path(data_root) / "spider" / "tables.json",
+        ]
+        self.schema_path = next(
+            (path for path in schema_candidates if path.exists()), schema_candidates[0]
+        )
 
     def load_examples(self, stage: str, qids: Optional[list] = None) -> list[dict]:
         """Load Spider examples for a specific stage."""

@@ -14,7 +14,7 @@ def test_spider_schema_loader_builds_tables_and_keys(tmp_path):
         "primary_keys": [1, 3],
         "foreign_keys": [[2, 3]],
     }]
-    (root / "dev_tables.json").write_text(json.dumps(schema), encoding="utf-8")
+    (root / "spider.tables.dev.json").write_text(json.dumps(schema), encoding="utf-8")
 
     loaded = SpiderDataset(str(tmp_path))._load_schema("school")
     assert loaded["tables"]["student"][0] == {"name": "id", "type": "number"}
